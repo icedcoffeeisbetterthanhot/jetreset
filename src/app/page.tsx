@@ -13,18 +13,16 @@ export default function HomePage() {
           recovery guidance. We focus on clear daily steps, gentle routines, and
           realistic expectations so you can arrive feeling more present and rested.
         </p>
-        <div className="flex flex-wrap items-center gap-4">
-          <button
-            type="button"
+                <div className="flex flex-wrap items-center gap-4">
+          <a
+            href="/trips"
             className="inline-flex items-center justify-center rounded-md bg-brand px-4 py-2 text-sm font-medium text-white shadow-soft hover:bg-brand-dark focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-surface-muted"
-            aria-label="JetReset preview is not yet available"
-            disabled
           >
-            Preview coming soon
-          </button>
-          <p className="text-xs text-slate-500">
-            We&apos;re currently building the foundation. Recovery plans, dashboards,
-            and account features will be introduced in future releases.
+            Manage trips
+          </a>
+          <p className="text-xs text-slate-500 max-w-xs">
+            Start by adding your upcoming journeys. JetReset will use trip details in
+            future releases to provide personalised recovery guidance.
           </p>
         </div>
       </section>
@@ -42,9 +40,9 @@ export default function HomePage() {
               <li>• Calm, reassuring tone focused on wellbeing, not performance.</li>
               <li>• Built with privacy and security principles from day one.</li>
             </ul>
-            <p className="text-xs text-slate-500">
-              This is a foundation-only release. No trip data, recovery plans, or user
-              accounts are stored yet.
+                        <p className="text-xs text-slate-500">
+              Trip creation and management are now available. Recovery guidance,
+              dashboards, and account features will be introduced in future releases.
             </p>
           </div>
         </div>
