@@ -5,7 +5,7 @@ test("home page has JetReset title and content", async ({ page }) => {
   await expect(page).toHaveTitle(/JetReset/i);
   await expect(
     page.getByRole("heading", {
-      name: /Recover from jet lag with calm, practical guidance/i
-    })
+      name: /Recover from jet lag with calm, practical guidance/i,
+    }),
   ).toBeVisible();
 });

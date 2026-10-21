@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@server/db";
 import { z } from "zod";
 import { TripDateTimeSchema, toZonedInstant } from "@lib/timezone";
@@ -16,13 +17,31 @@ const tripBaseSchema = z.object({
 export const createTripSchema = tripBaseSchema;
 export type CreateTripInput = z.infer<typeof createTripSchema>;
 
-export async function createTrip(input: CreateTripInput) {
+export class TripInputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TripInputError";
+  }
+}
+
+export class TripNotFoundError extends Error {
+  constructor() {
+    super("Trip not found.");
+    this.name = "TripNotFoundError";
+  }
+}
+
+function parseTripInput(input: unknown): CreateTripInput {
   const parsed = createTripSchema.safeParse(input);
   if (!parsed.success) {
     const message = parsed.error.errors.map((e) => e.message).join("; ");
-    throw new Error(`Invalid trip data: ${message}`);
+    throw new TripInputError(message);
   }
 
+  return parsed.data;
+}
+
+function getTripData(input: unknown) {
   const {
     name,
     origin,
@@ -32,36 +51,55 @@ export async function createTrip(input: CreateTripInput) {
     departureLocal,
     arrivalLocal,
     notes,
-  } = parsed.data;
+  } = parseTripInput(input);
 
-  const departureAt = toZonedInstant({
-    localDateTime: departureLocal,
-    timeZone: originTimeZone,
-  });
-
-  const arrivalAt = toZonedInstant({
-    localDateTime: arrivalLocal,
-    timeZone: destinationTimeZone,
-  });
-
-  if (arrivalAt.getTime() <= departureAt.getTime()) {
-    throw new Error("Arrival must be after departure.");
+  let departureAt: Date;
+  let arrivalAt: Date;
+  try {
+    departureAt = toZonedInstant({
+      localDateTime: departureLocal,
+      timeZone: originTimeZone,
+    });
+    arrivalAt = toZonedInstant({
+      localDateTime: arrivalLocal,
+      timeZone: destinationTimeZone,
+    });
+  } catch (error) {
+    throw new TripInputError(
+      error instanceof Error ? error.message : "Unable to interpret the selected local time.",
+    );
   }
 
-  const trip = await prisma.trip.create({
-    data: {
-      name,
-      origin,
-      destination,
-      originTimeZone,
-      destinationTimeZone,
-      departureAt,
-      arrivalAt,
-      notes: notes && notes.length > 0 ? notes : null,
-    },
-  });
+  if (arrivalAt.getTime() <= departureAt.getTime()) {
+    throw new TripInputError("Arrival must be after departure.");
+  }
 
-  return trip;
+  return {
+    name,
+    origin,
+    destination,
+    originTimeZone,
+    destinationTimeZone,
+    departureAt,
+    arrivalAt,
+    notes: notes && notes.length > 0 ? notes : null,
+  };
+}
+
+function validateTripId(id: number): void {
+  if (!Number.isSafeInteger(id) || id < 1) {
+    throw new TripInputError("Trip ID must be a positive integer.");
+  }
+}
+
+function isRecordNotFound(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025";
+}
+
+export async function createTrip(input: unknown) {
+  return prisma.trip.create({
+    data: getTripData(input),
+  });
 }
 
 export async function listTrips() {
@@ -71,58 +109,35 @@ export async function listTrips() {
 }
 
 export async function getTripById(id: number) {
+  validateTripId(id);
   return prisma.trip.findUnique({ where: { id } });
 }
 
-export async function updateTrip(id: number, input: CreateTripInput) {
-  const parsed = createTripSchema.safeParse(input);
-  if (!parsed.success) {
-    const message = parsed.error.errors.map((e) => e.message).join("; ");
-    throw new Error(`Invalid trip data: ${message}`);
+export async function updateTrip(id: number, input: unknown) {
+  validateTripId(id);
+
+  try {
+    return await prisma.trip.update({
+      where: { id },
+      data: getTripData(input),
+    });
+  } catch (error) {
+    if (isRecordNotFound(error)) {
+      throw new TripNotFoundError();
+    }
+    throw error;
   }
-
-  const {
-    name,
-    origin,
-    destination,
-    originTimeZone,
-    destinationTimeZone,
-    departureLocal,
-    arrivalLocal,
-    notes,
-  } = parsed.data;
-
-  const departureAt = toZonedInstant({
-    localDateTime: departureLocal,
-    timeZone: originTimeZone,
-  });
-
-  const arrivalAt = toZonedInstant({
-    localDateTime: arrivalLocal,
-    timeZone: destinationTimeZone,
-  });
-
-  if (arrivalAt.getTime() <= departureAt.getTime()) {
-    throw new Error("Arrival must be after departure.");
-  }
-
-  const trip = await prisma.trip.update({
-    where: { id },
-    data: {
-      name,
-      origin,
-      destination,
-      originTimeZone,
-      destinationTimeZone,
-      departureAt,
-      arrivalAt,
-      notes: notes && notes.length > 0 ? notes : null,
-    },
-  });
-
-  return trip;
 }
 
 export async function deleteTrip(id: number) {
-  await prisma.trip.delete({ where: { id } });
+  validateTripId(id);
+
+  try {
+    await prisma.trip.delete({ where: { id } });
+  } catch (error) {
+    if (isRecordNotFound(error)) {
+      throw new TripNotFoundError();
+    }
+    throw error;
+  }
 }

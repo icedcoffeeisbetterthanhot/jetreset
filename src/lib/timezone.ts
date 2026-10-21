@@ -62,6 +62,22 @@ function formatLocalDateTime(formatter: Intl.DateTimeFormat, timestamp: number):
   return `${parts.year.padStart(4, "0")}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
 }
 
+export function toLocalDateTime(date: Date, timeZone: string): string {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    calendar: "gregory",
+    numberingSystem: "latn",
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return formatLocalDateTime(formatter, date.getTime());
+}
+
 export function toZonedInstant({ localDateTime, timeZone }: TripDateTimeInput): Date {
   const [datePart, timePart] = localDateTime.split("T");
   const [year, month, day] = datePart.split("-").map(Number);

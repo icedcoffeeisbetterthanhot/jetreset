@@ -1,0 +1,92 @@
+import { Prisma } from "@prisma/client";
+import {
+  createTrip,
+  deleteTrip,
+  TripInputError,
+  TripNotFoundError,
+  updateTrip,
+} from "@server/tripService";
+
+const tripMocks = vi.hoisted(() => ({
+  create: vi.fn(),
+  findMany: vi.fn(),
+  findUnique: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+}));
+
+vi.mock("@server/db", () => ({
+  prisma: {
+    trip: tripMocks,
+  },
+}));
+
+const validTrip = {
+  name: "  London to Paris  ",
+  origin: " London ",
+  destination: " Paris ",
+  originTimeZone: "Europe/London",
+  destinationTimeZone: "Europe/Paris",
+  departureLocal: "2026-05-01T10:00",
+  arrivalLocal: "2026-05-01T12:00",
+  notes: "  ",
+};
+
+describe("trip service", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("creates a trip using trimmed values and absolute timestamps", async () => {
+    tripMocks.create.mockResolvedValue({ id: 1 });
+
+    await createTrip(validTrip);
+
+    expect(tripMocks.create).toHaveBeenCalledWith({
+      data: {
+        name: "London to Paris",
+        origin: "London",
+        destination: "Paris",
+        originTimeZone: "Europe/London",
+        destinationTimeZone: "Europe/Paris",
+        departureAt: new Date("2026-05-01T09:00:00.000Z"),
+        arrivalAt: new Date("2026-05-01T10:00:00.000Z"),
+        notes: null,
+      },
+    });
+  });
+
+  it("rejects invalid or non-positive journeys before persistence", async () => {
+    await expect(createTrip({ ...validTrip, arrivalLocal: "not-a-date" })).rejects.toBeInstanceOf(
+      TripInputError,
+    );
+    await expect(createTrip({ ...validTrip, arrivalLocal: "2026-05-01T09:00" })).rejects.toThrow(
+      "Arrival must be after departure.",
+    );
+
+    expect(tripMocks.create).not.toHaveBeenCalled();
+  });
+
+  it("updates the existing trip rather than creating a duplicate", async () => {
+    tripMocks.update.mockResolvedValue({ id: 7 });
+
+    await updateTrip(7, validTrip);
+
+    expect(tripMocks.update).toHaveBeenCalledWith({
+      where: { id: 7 },
+      data: expect.objectContaining({ name: "London to Paris" }),
+    });
+    expect(tripMocks.create).not.toHaveBeenCalled();
+  });
+
+  it("maps a missing record from deletion to a not-found error", async () => {
+    tripMocks.delete.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Record not found.", {
+        code: "P2025",
+        clientVersion: "test",
+      }),
+    );
+
+    await expect(deleteTrip(7)).rejects.toBeInstanceOf(TripNotFoundError);
+  });
+});

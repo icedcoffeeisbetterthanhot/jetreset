@@ -19,37 +19,49 @@ This document describes how to set up the project, run checks, and collaborate v
 
 3. **Configure environment**
 
-   ```bash
-   cp .env.example .env
-   # Edit .env to match your local PostgreSQL setup.
+   ```powershell
+   Copy-Item .env.example .env
    ```
 
-4. **Start PostgreSQL (Docker)**
+   Edit `DATABASE_URL` in `.env` to match a local PostgreSQL database and user.
+   The `.env` file contains local credentials and is ignored by Git. Never commit
+   it or paste its contents into issue reports.
+
+4. **Start PostgreSQL**
+
+   Docker is optional. If Docker Compose is available, start the included
+   PostgreSQL service:
 
    ```bash
    docker compose up -d
    ```
 
-5. **Run Prisma migrations**
+   Otherwise start the PostgreSQL Windows service installed on your machine.
+   Ensure the database and role in `DATABASE_URL` exist and PostgreSQL listens
+   on the configured port (the example uses `localhost:5432`).
 
-   ```bash
+5. **Generate Prisma Client and apply migrations**
+
+   ```powershell
    npm run db:generate
-   npm run db:migrate -- --name init_app_healthcheck
-   ```
-
-6. **Check database connectivity**
-
-   ```bash
+   npx prisma migrate deploy
    npm run db:check
    ```
 
-7. **Start the application**
+   `migrate deploy` applies the migrations already in this repository and does
+   not create a shadow database. To create a new migration during development,
+   use `npm run db:migrate -- --name <migration_name>`; Prisma's development
+   migration workflow needs a database role allowed to create databases for its
+   temporary shadow database. Do not use `--name` just to apply existing
+   migrations.
+
+6. **Start the application**
 
    ```bash
    npm run dev
    ```
 
-Open `http://localhost:3000` to view the JetReset landing page.
+Open `http://localhost:3000` to view JetReset.
 
 ## Quality Gates
 
@@ -59,14 +71,14 @@ Before opening a pull request, run:
 npm run lint
 npm run format:check
 npm run typecheck
-npm run test
+npm test -- --run
 npm run build
 ```
 
-If PostgreSQL is available:
+If PostgreSQL is available, apply committed migrations and check connectivity:
 
 ```bash
-npm run db:migrate
+npx prisma migrate deploy
 npm run db:check
 ```
 
@@ -118,17 +130,13 @@ To support multiple developers working in parallel:
   - Resolve conflicts or competing schema assumptions.
 - Avoid destructive resets in shared environments.
 
-## Out-of-Scope Features
+## Feature Roadmap and Data Safety
 
-The following are **explicitly out of scope** for Feature 1:
+Trip management is present in the current codebase but remains incomplete and
+has no authentication or user-ownership boundary. Keep this application on a
+trusted local development environment until authentication and authorization
+have been implemented and verified.
 
-- Trips, flights, and itinerary management.
-- Flight-status integrations.
-- Jet lag recovery algorithms or dashboards.
-- Sleep/light/meal/hydration recommendations.
-- Reminders, notifications, and calendar integrations.
-- Authentication and user accounts.
-- Travel statistics and reporting.
-- Any game or social features.
-
-These must not be implemented or scaffolded until explicitly approved.
+The remaining product roadmap is documented in `README.md`. Implement and
+verify one approved milestone at a time. Do not expose private trip data to
+other users before server-side ownership checks are in place.

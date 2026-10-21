@@ -10,11 +10,7 @@ import { checkDatabaseHealth } from "../src/server/db-check.ts";
     console.log("Database connectivity verified.");
     process.exit(0);
   } catch (error) {
-    console.error(
-      "Database health check error:",
-      error instanceof Error ? error.message : error,
-    );
+    console.error("Database health check error:", error instanceof Error ? error.message : error);
     process.exit(1);
   }
 })();
-

@@ -1,10 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
-  experimental: {
-    appDir: true
-  },
   poweredByHeader: false,
   async headers() {
     return [
@@ -13,24 +9,24 @@ const nextConfig = {
         headers: [
           {
             key: "X-Frame-Options",
-            value: "DENY"
+            value: "DENY",
           },
           {
             key: "X-Content-Type-Options",
-            value: "nosniff"
+            value: "nosniff",
           },
           {
             key: "Referrer-Policy",
-            value: "strict-origin-when-cross-origin"
+            value: "strict-origin-when-cross-origin",
           },
           {
             key: "X-XSS-Protection",
-            value: "0"
-          }
-        ]
-      }
+            value: "0",
+          },
+        ],
+      },
     ];
-  }
+  },
 };
 
 export default nextConfig;

@@ -2,7 +2,8 @@
 
 ## Overview
 
-JetReset currently implements the application foundation only, using a **modular monolith** approach:
+JetReset uses a **modular monolith** approach. The repository contains the
+application foundation and local trip-management features:
 
 - Next.js App Router for routing and server-side rendering.
 - Strict TypeScript for safety and maintainability.
@@ -15,17 +16,24 @@ JetReset currently implements the application foundation only, using a **modular
 ```text
 src/
   app/          # Next.js App Router routes, layouts, and global styles
+    api/trips/  # Trip collection and item API routes
+      [id]/
+        route.ts
+      route.ts
+    trips/      # Trip list, details, create, and edit pages
     layout.tsx
     page.tsx
     globals.css
-  components/   # Shared UI components and layout primitives
+  components/   # Shared UI components and feature components
     ui/
     layout/
-  features/     # Feature-specific modules (empty for Feature 1)
+    trips/
   lib/          # Shared utilities, env validation, non-secret configuration
     env.ts
+    timezone.ts
   server/       # Server-only services and data-access code (Prisma client)
     db.ts
+    tripService.ts
 prisma/
   schema.prisma # Prisma schema and migrations
   migrations/   # Version-controlled migrations
@@ -46,6 +54,8 @@ docs/
 - **Presentation (UI)**: `src/app`, `src/components`
 - **Shared utilities**: `src/lib` (e.g. environment validation)
 - **Data access**: `src/server/db.ts` using Prisma
+- **Trip business logic**: `src/server/tripService.ts`
+- **Time-zone utilities**: `src/lib/timezone.ts`
 - **Configuration**:
   - Environment variables validated via `src/lib/env.ts`
   - Next.js configuration via `next.config.mjs`
@@ -61,14 +71,22 @@ docs/
 
 The architecture is compatible with future modules such as:
 
-- Trips and flights
+- Flight segments and flight data
 - Airports and time zones
 - Recovery planning and daily activities
 - Reminders and calendar integrations
 - User accounts and preferences
 - Travel statistics and reporting
 
-These modules will live under `src/features/` and related directories when explicitly approved, but are intentionally not scaffolded in Feature 1.
+The remaining roadmap is documented in `README.md`. Keep new modules behind
+the existing server-side service boundary and deliver them one milestone at a
+time.
+
+## Current Data-Access Limitation
+
+Trip routes currently have no authentication or ownership checks. They are
+appropriate only for trusted local development; do not expose this application
+or its trip data to untrusted users until server-side authorization is added.
 
 ## Design Decisions (Key Points)
 

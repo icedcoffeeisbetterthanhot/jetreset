@@ -5,19 +5,23 @@
 - **Name**: JetReset
 - **Description**: JetReset helps travellers recover from jet lag with practical, time-aware recovery guidance.
 
-## Current Release: Feature 1 (Foundation Only)
+## Current Implementation Status
 
-This release focuses **only** on foundational architecture and infrastructure:
+The repository contains the application foundation and trip-management
+features:
 
 - Working Next.js application with App Router.
 - Strict TypeScript configuration.
 - Tailwind-based design foundation.
-- Minimal, polished landing page establishing JetReset's identity.
+- Landing page establishing JetReset's identity.
 - PostgreSQL + Prisma configuration.
 - Environment variable validation.
-- Baseline security and testing.
+- Trip creation, listing, detail views, editing, and deletion.
+- Time-zone-aware trip times, daylight-saving validation, and journey duration.
 
-No user-facing product features (trips, recovery plans, dashboards, etc.) are implemented yet.
+Authentication and ownership enforcement are not yet available. Trip records
+are not protected multi-user data; use this implementation only for trusted
+local development until access control is implemented.
 
 ## Landing Page Requirements (Implemented)
 
@@ -25,14 +29,12 @@ No user-facing product features (trips, recovery plans, dashboards, etc.) are im
 - Concise explanation of the product.
 - Responsive layout (desktop, tablet, mobile).
 - Accessible structure (semantic HTML, keyboard navigation, visible focus).
-- No misleading controls suggesting non-existent functionality.
-- Clear indication that core features are "coming soon".
+- Navigation reflects available features.
+- Controls do not claim that incomplete features are available.
 
-## Future Features (Not Yet Implemented)
+## Remaining Features (Not Yet Implemented)
 
-Potential future modules (subject to separate approval):
-
-- Trip management and itinerary planning.
+- Flight segments and itinerary planning.
 - Jet lag recovery plans and daily activity guidance.
 - Daily recovery dashboard.
 - Reminders and calendar integrations.
@@ -40,14 +42,15 @@ Potential future modules (subject to separate approval):
 - User accounts, preferences, and privacy controls.
 - Travel statistics and reporting.
 
-These must be scoped and accepted individually before implementation.
+Implement the approved roadmap in independently verified milestones. Features
+that require external services must not claim live functionality until those
+services are configured and verified.
 
-## Non-Goals for Feature 1
+## Current Limitations
 
-Feature 1 explicitly does **not**:
-
-- Store any user-specific or trip data.
-- Implement authentication or account management.
-- Provide actual recovery steps or algorithms.
-- Offer flight search or time zone planning tools.
-- Implement offline capabilities or PWA features.
+- No authentication or account management.
+- No server-side trip ownership or authorization.
+- No flight segments or flight/airport data provider.
+- No recovery plan or daily guidance.
+- No live flight status.
+- No reminders, exports, maps, social features, or offline capabilities.

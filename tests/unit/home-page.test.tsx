@@ -1,3 +1,4 @@
+import React from "react";
 import { render, screen } from "@testing-library/react";
 import HomePage from "../../src/app/page";
 
@@ -7,19 +8,16 @@ describe("HomePage", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: /Recover from jet lag with calm, practical guidance/i
-      })
+        name: /Recover from jet lag with calm, practical guidance/i,
+      }),
     ).toBeInTheDocument();
 
-    expect(
-      screen.getByText(/JetReset helps travellers recover from jet lag/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/JetReset helps travellers recover from jet lag/i)).toBeInTheDocument();
   });
 
-  it("shows disabled preview button", () => {
+  it("provides navigation to trip management", () => {
     render(<HomePage />);
 
-    const button = screen.getByRole("button", { name: /preview coming soon/i });
-    expect(button).toBeDisabled();
+    expect(screen.getByRole("link", { name: /manage trips/i })).toHaveAttribute("href", "/trips");
   });
 });

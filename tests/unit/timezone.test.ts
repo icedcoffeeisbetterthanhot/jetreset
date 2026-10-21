@@ -1,4 +1,4 @@
-import { toZonedInstant } from "../../src/lib/timezone";
+import { toLocalDateTime, toZonedInstant } from "../../src/lib/timezone";
 
 describe("toZonedInstant", () => {
   it("converts local times in time zones with a positive UTC offset", () => {
@@ -26,6 +26,12 @@ describe("toZonedInstant", () => {
         timeZone: "America/New_York",
       }).toISOString(),
     ).toBe("2026-07-15T13:30:00.000Z");
+  });
+
+  it("formats stored instants in the selected local time zone", () => {
+    expect(toLocalDateTime(new Date("2026-07-15T13:30:00.000Z"), "America/New_York")).toBe(
+      "2026-07-15T09:30",
+    );
   });
 
   it("rejects local times skipped by a daylight-saving transition", () => {
