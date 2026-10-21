@@ -1,6 +1,4 @@
-"use client";
-
-import { useMemo, useState } from "react";
+import React from "react";
 import { COMMON_TIME_ZONES } from "@lib/timezones";
 
 interface TimezoneSelectProps {
@@ -22,28 +20,12 @@ export function TimezoneSelect({
   helperText,
   onChange,
 }: TimezoneSelectProps) {
-  const [search, setSearch] = useState("");
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return COMMON_TIME_ZONES;
-    return COMMON_TIME_ZONES.filter((tz) => tz.toLowerCase().includes(q));
-  }, [search]);
-
   return (
     <div className="space-y-1">
       <label htmlFor={id} className="text-sm font-medium text-surface-strong">
         {label}
         {required && <span className="text-danger"> *</span>}
       </label>
-
-      <input
-        type="text"
-        className="w-full rounded-md border border-slate-300 bg-surface px-3 py-2 text-xs text-slate-700"
-        placeholder="Search time zone (e.g. Europe/London)"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
 
       <select
         id={id}
@@ -54,7 +36,7 @@ export function TimezoneSelect({
         aria-describedby={error ? `${id}-error` : helperText ? `${id}-help` : undefined}
       >
         <option value="">Select a time zone…</option>
-        {filtered.map((tz) => (
+        {COMMON_TIME_ZONES.map((tz) => (
           <option key={tz} value={tz}>
             {tz}
           </option>
