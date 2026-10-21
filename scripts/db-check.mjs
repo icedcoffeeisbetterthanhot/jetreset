@@ -1,4 +1,4 @@
-import { checkDatabaseHealth } from "../src/server/db.js";
+import { checkDatabaseHealth } from "../src/server/db-check.ts";
 
 (async () => {
   try {
@@ -12,8 +12,9 @@ import { checkDatabaseHealth } from "../src/server/db.js";
   } catch (error) {
     console.error(
       "Database health check error:",
-      error instanceof Error ? error.message : error
+      error instanceof Error ? error.message : error,
     );
     process.exit(1);
   }
 })();
+

@@ -14,3 +14,18 @@ model AppHealthCheck {
   createdAt DateTime @default(now())
   note      String
 }
+
+model Trip {
+  id                  Int      @id @default(autoincrement())
+  name                String   @db.VarChar(200)
+  origin              String   @db.VarChar(200)
+  destination         String   @db.VarChar(200)
+  originTimeZone      String   @db.VarChar(100)
+  destinationTimeZone String   @db.VarChar(100)
+  departureAt         DateTime
+  arrivalAt           DateTime
+  notes               String?  @db.VarChar(2000)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
