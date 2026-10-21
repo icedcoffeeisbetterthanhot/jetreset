@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-surface-muted text-surface-strong font-sans antialiased;
+}
+
+:focus-visible {
+  @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-surface-muted;
+}
+
+.app-shell {
+  @apply min-h-screen flex flex-col bg-surface-muted;
+}
+
+.app-main {
+  @apply flex-1;
+}
