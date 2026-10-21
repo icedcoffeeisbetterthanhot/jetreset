@@ -22,6 +22,11 @@ features:
 - Search across the bundled scheduled-service airport directory, with airport
   local-time display, connection/overlap warnings, and flight/layover/elapsed
   journey calculations.
+- A deterministic multi-day recovery-plan estimate with destination-local
+  sleep, daylight, meal, hydration, gentle-movement, and conservative caffeine
+  guidance.
+- A trip-specific dashboard with trip stage, next target bedtime, flexible
+  wake/bedtime preferences, and persisted activity completion.
 
 Authentication and ownership enforcement are not yet available. Trip records
 are not protected multi-user data; use this implementation only for trusted
@@ -38,8 +43,6 @@ local development until access control is implemented.
 
 ## Remaining Features (Not Yet Implemented)
 
-- Jet lag recovery plans and daily activity guidance.
-- Daily recovery dashboard.
 - Reminders and calendar integrations.
 - Flight-status integrations.
 - User accounts, preferences, and privacy controls.
@@ -54,5 +57,8 @@ services are configured and verified.
 - No authentication or account management.
 - No server-side trip ownership or authorization.
 - No live flight status, estimates, or actual-time updates.
-- No recovery plan or daily guidance.
+- Recovery guidance is general and not a clinical circadian model or medical
+  advice; it does not use personal health data, verified flight updates, or
+  live daylight information.
+- No reminders or external notification delivery.
 - No reminders, exports, maps, social features, or offline capabilities.

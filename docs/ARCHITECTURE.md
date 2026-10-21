@@ -18,13 +18,16 @@ src/
   app/          # Next.js App Router routes, layouts, and global styles
     api/
       airports/ # Airport search over the bundled directory
-      trips/    # Trip and flight-segment API routes
-      [id]/
-        flights/
-          [flightId]/ # Update and delete one flight segment
-          route.ts
+      trips/
         route.ts
-      route.ts
+        [id]/
+          route.ts
+          flights/
+            route.ts
+            [flightId]/ # Update and delete one flight segment
+          recovery/
+            route.ts
+            activities/[activityId]/ # Persist activity completion
     trips/      # Trip list, details, create, and edit pages
     layout.tsx
     page.tsx
@@ -36,11 +39,14 @@ src/
   lib/          # Shared utilities, env validation, non-secret configuration
     env.ts
     itinerary.ts
+    recoveryPlan.ts
     timezone.ts
   server/       # Server-only services and data-access code (Prisma client)
     airportService.ts
     db.ts
     flightService.ts
+    recoveryErrors.ts
+    recoveryService.ts
     tripService.ts
   data/
     airports.json # Bundled airport directory
@@ -98,11 +104,37 @@ elapsed itinerary time, layovers, and time-zone offset changes. It warns about
 overlapping flights and mismatched transfer airports. This is scheduled
 itinerary planning only; no flight-status provider is configured.
 
+## Recovery Planning and Daily Dashboard
+
+`src/lib/recoveryPlan.ts` is a deterministic planner that takes trip times,
+IANA zones, optional flight segments, a reference date, and limited user
+preferences. It estimates the offset change at the itinerary endpoints and
+creates a 3–7 day destination-local schedule, with an optional pre-departure
+routine reminder when at least one full day remains. It records total elapsed
+journey duration from the flight itinerary when available, otherwise from the
+trip's planned times. On arrival day, it does not schedule routine activities
+before the scheduled arrival instant.
+
+The engine provides flexible routine targets and general educational
+suggestions. It does not model an individual's circadian phase, prescribe
+light exposure, calculate personal hydration or exercise needs, use medical
+data, or promise recovery outcomes. The offset-based east/west estimate is
+approximate, especially around daylight-saving transitions. Light guidance
+therefore remains conservative and does not change into phase-specific advice
+based on direction.
+
+`RecoveryPlan` and `RecoveryActivity` store a trip-specific plan snapshot and
+completion timestamps. Re-generation replaces uncompleted activities and uses
+stable schedule keys so completed activities remain completed only when their
+scheduled task still matches. A changed trip or flight segment marks the plan
+out of date until refreshed. Activity completion is scoped to its trip's plan.
+The dashboard selects one trip at a time, shows the destination-local stage and
+day, and calculates progress only from persisted activity completion.
+
 ## Future Modules (Not Yet Implemented)
 
 The architecture is compatible with future modules such as:
 
-- Recovery planning and daily activities
 - Reminders and calendar integrations
 - User accounts and preferences
 - Travel statistics and reporting
@@ -122,5 +154,6 @@ or its trip data to untrusted users until server-side authorization is added.
 - **Modular monolith**: Easier for a small team to reason about, with clear boundaries within a single app.
 - **Prisma + PostgreSQL**: Structured, typed access and migrations, appropriate for long-term data integrity.
 - **Airport snapshots**: Airport names and IANA zones are copied onto segments to keep saved itineraries stable across airport-directory updates; deleting a trip cascades to its flight segments.
+- **Recovery-plan snapshots**: Plans are explicitly regenerated from the current trip and flight schedule; completed activities are retained only for identical activity schedules. Recovery records cascade with their parent trip.
 - **Tailwind tokens**: Semantic color and spacing tokens enable a consistent look across independently developed features.
 - **Strict TypeScript**: Reduces runtime errors and improves API clarity between modules.

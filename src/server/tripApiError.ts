@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { TripInputError, TripNotFoundError } from "@server/tripService";
 import { FlightSegmentNotFoundError } from "@server/flightErrors";
+import { RecoveryActivityNotFoundError } from "@server/recoveryErrors";
 
 export function tripApiErrorResponse(error: unknown, fallbackMessage: string) {
   if (error instanceof TripInputError || error instanceof SyntaxError) {
@@ -12,7 +13,11 @@ export function tripApiErrorResponse(error: unknown, fallbackMessage: string) {
     );
   }
 
-  if (error instanceof TripNotFoundError || error instanceof FlightSegmentNotFoundError) {
+  if (
+    error instanceof TripNotFoundError ||
+    error instanceof FlightSegmentNotFoundError ||
+    error instanceof RecoveryActivityNotFoundError
+  ) {
     return NextResponse.json({ error: error.message }, { status: 404 });
   }
 

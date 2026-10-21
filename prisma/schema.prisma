@@ -28,6 +28,7 @@ model Trip {
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
   flightSegments      FlightSegment[]
+  recoveryPlan        RecoveryPlan?
 }
 
 model FlightSegment {
@@ -52,4 +53,60 @@ model FlightSegment {
   updatedAt            DateTime @updatedAt
 
   @@index([tripId, scheduledDepartureAt])
+}
+
+enum RecoveryActivityType {
+  sleep
+  light
+  meal
+  hydration
+  exercise
+  caffeine
+}
+
+enum RecoveryDirection {
+  east
+  west
+  none
+}
+
+model RecoveryPlan {
+  id                        Int                @id @default(autoincrement())
+  tripId                    Int                @unique
+  trip                      Trip               @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  sourceTripUpdatedAt       DateTime
+  sourceItineraryHash       String             @db.VarChar(64)
+  destinationTimeZone       String             @db.VarChar(100)
+  journeyDurationMinutes    Int
+  direction                 RecoveryDirection
+  timeZoneChangeMinutes     Int
+  estimatedTimeZonesCrossed Int
+  recoveryDays              Int
+  targetBedtime             String             @db.VarChar(5)
+  targetWakeTime            String             @db.VarChar(5)
+  avoidCaffeine             Boolean            @default(false)
+  preparationDaysAvailable  Int                @default(0)
+  assumptions               String[]
+  generatedAt               DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+  activities                RecoveryActivity[]
+}
+
+model RecoveryActivity {
+  id          Int                  @id @default(autoincrement())
+  planId      Int
+  plan        RecoveryPlan         @relation(fields: [planId], references: [id], onDelete: Cascade)
+  activityKey String               @db.VarChar(32)
+  dayNumber   Int
+  type        RecoveryActivityType
+  title       String               @db.VarChar(120)
+  guidance    String               @db.VarChar(1000)
+  scheduledAt DateTime
+  timeZone    String               @db.VarChar(100)
+  completedAt DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@unique([planId, activityKey])
+  @@index([planId, scheduledAt])
 }

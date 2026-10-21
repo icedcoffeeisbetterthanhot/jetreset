@@ -12,6 +12,8 @@ The foundation includes:
 - Server-validated trip creation, listing, detail, update, and delete routes.
 - Server-validated flight-segment management and bounded airport search over
   a bundled public dataset.
+- Server-validated, trip-scoped recovery-plan generation and activity
+  completion.
 
 Trip routes currently have no authentication or ownership enforcement. Run
 this version only in a trusted local development environment; do not deploy it
@@ -40,6 +42,9 @@ is implemented and verified.
   mutations do not yet enforce user ownership.
 - Flight segments are scoped to their parent trip and cascade when that trip
   is deleted; there are still no user ownership checks.
+- Recovery plans and completion updates are scoped to a trip, but that trip
+  itself has no authenticated owner. Do not expose recovery activity data
+  publicly until Milestone 4 authorization is implemented.
 - Airport search operates on bundled data. The airport refresh script fetches
   its source only when a developer runs it; the application makes no live
   airport or flight-status provider requests.
@@ -79,6 +84,8 @@ Relevant current risks:
 - Trip input validation and persistence behavior tested with mocked Prisma.
 - Flight-segment time conversion, airport validation, connection calculations,
   and airport search covered by unit tests.
+- Recovery planning, time-zone handling, preference validation, persistence,
+  stale-plan detection, and dashboard progress covered by unit tests.
 - Browser smoke test verified with Playwright.
 - Production build (`npm run build`) validates configuration.
 - Prisma connectivity can be tested with `npm run db:check` when PostgreSQL is available.
@@ -92,6 +99,10 @@ Relevant current risks:
 - Airport metadata is sourced from the published OurAirports dataset and
   airport time zones are derived from coordinates. Verify critical airport
   details independently; the bundled directory is not a live provider.
+- Recovery suggestions are general travel-routine guidance, not a medical
+  recommendation, diagnosis, or individualized circadian calculation. The
+  dashboard presents this limitation and advises professional input when
+  health circumstances could change what is appropriate.
 - No audit logging or intrusion detection.
 - No application-level rate limiting.
 - No CSP or HSTS fully defined; needs per-deployment tuning.

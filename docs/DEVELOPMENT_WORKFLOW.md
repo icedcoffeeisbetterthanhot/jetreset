@@ -58,6 +58,8 @@ This document describes how to set up the project, run checks, and collaborate v
    Refresh the bundled airport directory when needed with
    `npm run airports:update`. This downloads the scheduled-service airport
    dataset from OurAirports and derives airport time zones from coordinates.
+   Apply the latest recovery-plan schema along with the other committed
+   migrations using `npx prisma migrate deploy`.
 
 6. **Start the application**
 
@@ -136,10 +138,12 @@ To support multiple developers working in parallel:
 
 ## Feature Roadmap and Data Safety
 
-Trip management and flight planning are present in the current codebase, but
-neither has an authentication or user-ownership boundary. Keep this
-application on a trusted local development environment until authentication
-and authorization have been implemented and verified.
+Trip management, flight planning, recovery plans, and activity progress are
+present in the current codebase, but they have no authentication or
+user-ownership boundary. Keep this application on a trusted local development
+environment until authentication and authorization have been implemented and
+verified. Recovery suggestions are general educational guidance rather than
+medical advice.
 
 The remaining product roadmap is documented in `README.md`. Implement and
 verify one approved milestone at a time. Do not expose private trip data to

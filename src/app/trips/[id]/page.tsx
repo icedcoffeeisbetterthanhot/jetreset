@@ -3,6 +3,8 @@ import { computeDurationMinutes, formatDuration } from "@lib/timezone";
 import { getTripById } from "@server/tripService";
 import { listFlightSegments } from "@server/flightService";
 import { FlightPlanner } from "@components/trips/FlightPlanner";
+import { RecoveryDashboard } from "@components/trips/RecoveryDashboard";
+import { getRecoveryPlan } from "@server/recoveryService";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -26,6 +28,7 @@ export default async function TripDetailsPage({ params }: TripDetailsPageProps) 
   const trip = await getTripById(id);
   if (!trip) notFound();
   const flightSegments = await listFlightSegments(id);
+  const recovery = await getRecoveryPlan(id);
 
   const now = Date.now();
   const status =
@@ -95,6 +98,42 @@ export default async function TripDetailsPage({ params }: TripDetailsPageProps) 
           scheduledDepartureAt: segment.scheduledDepartureAt.toISOString(),
           scheduledArrivalAt: segment.scheduledArrivalAt.toISOString(),
         }))}
+      />
+      <RecoveryDashboard
+        tripId={trip.id}
+        departureAt={trip.departureAt.toISOString()}
+        arrivalAt={trip.arrivalAt.toISOString()}
+        destinationTimeZone={trip.destinationTimeZone}
+        initialPlan={
+          recovery.plan
+            ? {
+                sourceTripUpdatedAt: recovery.plan.sourceTripUpdatedAt.toISOString(),
+                destinationTimeZone: recovery.plan.destinationTimeZone,
+                journeyDurationMinutes: recovery.plan.journeyDurationMinutes,
+                direction: recovery.plan.direction,
+                timeZoneChangeMinutes: recovery.plan.timeZoneChangeMinutes,
+                estimatedTimeZonesCrossed: recovery.plan.estimatedTimeZonesCrossed,
+                recoveryDays: recovery.plan.recoveryDays,
+                targetBedtime: recovery.plan.targetBedtime,
+                targetWakeTime: recovery.plan.targetWakeTime,
+                avoidCaffeine: recovery.plan.avoidCaffeine,
+                preparationDaysAvailable: recovery.plan.preparationDaysAvailable,
+                assumptions: recovery.plan.assumptions,
+                activities: recovery.plan.activities.map((activity) => ({
+                  id: activity.id,
+                  activityKey: activity.activityKey,
+                  dayNumber: activity.dayNumber,
+                  type: activity.type,
+                  title: activity.title,
+                  guidance: activity.guidance,
+                  scheduledAt: activity.scheduledAt.toISOString(),
+                  completedAt: activity.completedAt?.toISOString() ?? null,
+                  timeZone: activity.timeZone,
+                })),
+              }
+            : null
+        }
+        initialPlanIsOutOfDate={recovery.isOutOfDate}
       />
     </div>
   );
