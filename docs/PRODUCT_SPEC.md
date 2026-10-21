@@ -1,4 +1,4 @@
-# JetReset Product Specification (Foundation Scope)
+# JetReset Product Specification
 
 ## Product Identity
 
@@ -18,6 +18,10 @@ features:
 - Environment variable validation.
 - Trip creation, listing, detail views, editing, and deletion.
 - Time-zone-aware trip times, daylight-saving validation, and journey duration.
+- Flight-segment creation, editing, and removal for a trip.
+- Search across the bundled scheduled-service airport directory, with airport
+  local-time display, connection/overlap warnings, and flight/layover/elapsed
+  journey calculations.
 
 Authentication and ownership enforcement are not yet available. Trip records
 are not protected multi-user data; use this implementation only for trusted
@@ -34,7 +38,6 @@ local development until access control is implemented.
 
 ## Remaining Features (Not Yet Implemented)
 
-- Flight segments and itinerary planning.
 - Jet lag recovery plans and daily activity guidance.
 - Daily recovery dashboard.
 - Reminders and calendar integrations.
@@ -50,7 +53,6 @@ services are configured and verified.
 
 - No authentication or account management.
 - No server-side trip ownership or authorization.
-- No flight segments or flight/airport data provider.
+- No live flight status, estimates, or actual-time updates.
 - No recovery plan or daily guidance.
-- No live flight status.
 - No reminders, exports, maps, social features, or offline capabilities.

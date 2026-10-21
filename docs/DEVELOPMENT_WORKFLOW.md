@@ -55,6 +55,10 @@ This document describes how to set up the project, run checks, and collaborate v
    temporary shadow database. Do not use `--name` just to apply existing
    migrations.
 
+   Refresh the bundled airport directory when needed with
+   `npm run airports:update`. This downloads the scheduled-service airport
+   dataset from OurAirports and derives airport time zones from coordinates.
+
 6. **Start the application**
 
    ```bash
@@ -132,10 +136,10 @@ To support multiple developers working in parallel:
 
 ## Feature Roadmap and Data Safety
 
-Trip management is present in the current codebase but remains incomplete and
-has no authentication or user-ownership boundary. Keep this application on a
-trusted local development environment until authentication and authorization
-have been implemented and verified.
+Trip management and flight planning are present in the current codebase, but
+neither has an authentication or user-ownership boundary. Keep this
+application on a trusted local development environment until authentication
+and authorization have been implemented and verified.
 
 The remaining product roadmap is documented in `README.md`. Implement and
 verify one approved milestone at a time. Do not expose private trip data to

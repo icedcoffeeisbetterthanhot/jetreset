@@ -10,6 +10,8 @@ The foundation includes:
 - Server-only database access.
 - Baseline security headers.
 - Server-validated trip creation, listing, detail, update, and delete routes.
+- Server-validated flight-segment management and bounded airport search over
+  a bundled public dataset.
 
 Trip routes currently have no authentication or ownership enforcement. Run
 this version only in a trusted local development environment; do not deploy it
@@ -36,6 +38,11 @@ is implemented and verified.
 - Prisma stores trip data in addition to the health-check model.
 - Trip inputs and identifiers are validated on the server, but queries and
   mutations do not yet enforce user ownership.
+- Flight segments are scoped to their parent trip and cascade when that trip
+  is deleted; there are still no user ownership checks.
+- Airport search operates on bundled data. The airport refresh script fetches
+  its source only when a developer runs it; the application makes no live
+  airport or flight-status provider requests.
 - Database connectivity can be tested via `npm run db:check`.
 
 ### Web Security Headers
@@ -61,13 +68,17 @@ Relevant current risks:
 - **A06: Vulnerable and Outdated Components**: The production dependency audit is clean; development dependency advisories remain and should be reviewed.
 - **A08: Software and Data Integrity Failures**: Prisma migrations manage schema evolution; destructive reset is discouraged.
 - **A09: Security Logging and Monitoring Failures**: No centralized logging yet; to be addressed when backend features are introduced.
-- **A10: Server-Side Request Forgery (SSRF)**: No external calls implemented yet.
+- **A10: Server-Side Request Forgery (SSRF)**: No runtime external requests are
+  made. The airport refresh script downloads from a fixed OurAirports source URL
+  only when explicitly run by a developer.
 
 ## Verification Performed
 
 - Environment validation tested via unit tests (`tests/unit/env.test.ts`).
 - Basic layout and landing page rendering tested via Vitest + Testing Library.
 - Trip input validation and persistence behavior tested with mocked Prisma.
+- Flight-segment time conversion, airport validation, connection calculations,
+  and airport search covered by unit tests.
 - Browser smoke test verified with Playwright.
 - Production build (`npm run build`) validates configuration.
 - Prisma connectivity can be tested with `npm run db:check` when PostgreSQL is available.
@@ -78,6 +89,9 @@ Relevant current risks:
 - Production dependency audit was clean after the latest framework and PostCSS
   updates. Development dependencies still have outstanding audit advisories;
   review them before relying on development tooling in sensitive environments.
+- Airport metadata is sourced from the published OurAirports dataset and
+  airport time zones are derived from coordinates. Verify critical airport
+  details independently; the bundled directory is not a live provider.
 - No audit logging or intrusion detection.
 - No application-level rate limiting.
 - No CSP or HSTS fully defined; needs per-deployment tuning.

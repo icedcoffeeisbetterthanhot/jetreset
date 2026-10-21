@@ -1,6 +1,8 @@
 import { TripActions } from "@components/trips/TripActions";
 import { computeDurationMinutes, formatDuration } from "@lib/timezone";
 import { getTripById } from "@server/tripService";
+import { listFlightSegments } from "@server/flightService";
+import { FlightPlanner } from "@components/trips/FlightPlanner";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -23,6 +25,7 @@ export default async function TripDetailsPage({ params }: TripDetailsPageProps) 
 
   const trip = await getTripById(id);
   if (!trip) notFound();
+  const flightSegments = await listFlightSegments(id);
 
   const now = Date.now();
   const status =
@@ -83,6 +86,16 @@ export default async function TripDetailsPage({ params }: TripDetailsPageProps) 
           </div>
         )}
       </dl>
+      <FlightPlanner
+        tripId={trip.id}
+        origin={trip.origin}
+        destination={trip.destination}
+        initialSegments={flightSegments.map((segment) => ({
+          ...segment,
+          scheduledDepartureAt: segment.scheduledDepartureAt.toISOString(),
+          scheduledArrivalAt: segment.scheduledArrivalAt.toISOString(),
+        }))}
+      />
     </div>
   );
 }

@@ -16,16 +16,40 @@ model AppHealthCheck {
 }
 
 model Trip {
-  id                  Int      @id @default(autoincrement())
-  name                String   @db.VarChar(200)
-  origin              String   @db.VarChar(200)
-  destination         String   @db.VarChar(200)
-  originTimeZone      String   @db.VarChar(100)
-  destinationTimeZone String   @db.VarChar(100)
+  id                  Int             @id @default(autoincrement())
+  name                String          @db.VarChar(200)
+  origin              String          @db.VarChar(200)
+  destination         String          @db.VarChar(200)
+  originTimeZone      String          @db.VarChar(100)
+  destinationTimeZone String          @db.VarChar(100)
   departureAt         DateTime
   arrivalAt           DateTime
-  notes               String?  @db.VarChar(2000)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  notes               String?         @db.VarChar(2000)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  flightSegments      FlightSegment[]
 }
 
+model FlightSegment {
+  id                   Int      @id @default(autoincrement())
+  tripId               Int
+  trip                 Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  airline              String?  @db.VarChar(120)
+  flightNumber         String?  @db.VarChar(32)
+  departureAirportCode String   @db.VarChar(3)
+  departureAirportName String   @db.VarChar(200)
+  departureAirportCity String?  @db.VarChar(120)
+  departureCountryCode String?  @db.VarChar(2)
+  departureTimeZone    String   @db.VarChar(100)
+  arrivalAirportCode   String   @db.VarChar(3)
+  arrivalAirportName   String   @db.VarChar(200)
+  arrivalAirportCity   String?  @db.VarChar(120)
+  arrivalCountryCode   String?  @db.VarChar(2)
+  arrivalTimeZone      String   @db.VarChar(100)
+  scheduledDepartureAt DateTime
+  scheduledArrivalAt   DateTime
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([tripId, scheduledDepartureAt])
+}
