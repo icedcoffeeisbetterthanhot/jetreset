@@ -25,5 +25,6 @@ describe("HomePage", () => {
       "/trips/new",
     );
     expect(screen.getByRole("link", { name: /view my trips/i })).toHaveAttribute("href", "/trips");
+    expect(document.querySelector('a[href="/game"]')).not.toBeInTheDocument();
   });
 });

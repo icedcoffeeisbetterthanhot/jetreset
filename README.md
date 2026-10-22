@@ -564,15 +564,20 @@ Requirements:
 Keep the game separate from essential recovery workflows.
 Provide accessible controls.
 Support sensible keyboard interaction.
-Track high scores in the database.
-Associate scores with authenticated users where applicable.
-Validate submitted scores server-side.
-Prevent straightforward score manipulation where practical.
 Avoid allowing game activity to disrupt trip or recovery data.
 
 Treat high scores as game data, not as a security-sensitive ranking unless the product later introduces competitive rewards.
 
 Do not prioritise the game above core travel and recovery functionality.
+
+The current milestone 12 delivery is a standalone, browser-only game page at `/game`.
+It is intentionally not linked from the application and is reached by entering its URL directly.
+The current-flight score and game state remain in memory and are discarded when the page is left;
+there is no high-score tracking, database model, API, or account association in this scope.
+The game includes white clouds, birds, and balloons as obstacles; obstacle movement accelerates
+during a flight, and a game-over overlay marks the board after a collision.
+Persistent high scores and server-side score validation remain future work requiring explicit
+approval.
 
 22. Database Design and Data Integrity
 
@@ -806,7 +811,7 @@ Implement consent-based friend relationships, controlled travel sharing, and pri
 
 Milestone 12 — Easter egg game
 
-Implement the optional transport game and persistent high scores.
+Implement the standalone, UI-only transport game. Persistent high scores are deferred.
 
 Milestone 13 — Release readiness
 
