@@ -212,6 +212,9 @@ describe("toRecoveryPlanView", () => {
     const view = toRecoveryPlanView({
       ...plan,
       sourceTripUpdatedAt: new Date("2026-05-30T12:00:00.000Z"),
+      routeDepartureAt: null,
+      routeArrivalAt: null,
+      adjustedAt: null,
       activities: [
         {
           ...plan.activities[1],

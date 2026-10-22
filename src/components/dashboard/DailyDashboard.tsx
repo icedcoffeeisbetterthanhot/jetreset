@@ -22,6 +22,10 @@ interface DailyDashboardProps {
   destinationTimeZone: string;
   plan: RecoveryPlanView;
   planIsOutOfDate: boolean;
+  /** Verified flight-status changes exist that the plan does not reflect yet. */
+  flightStatusChangePending?: boolean;
+  /** Cancellations or diversions that require an itinerary update. */
+  flightStatusAlerts?: string[];
   /** Server render time, so the first client render matches the server output. */
   initialNow: string;
 }
@@ -50,6 +54,8 @@ export function DailyDashboard({
   destinationTimeZone,
   plan: initialPlan,
   planIsOutOfDate,
+  flightStatusChangePending = false,
+  flightStatusAlerts = [],
   initialNow,
 }: DailyDashboardProps) {
   const [plan, setPlan] = useState(initialPlan);
@@ -132,6 +138,52 @@ export function DailyDashboard({
             Regenerate it from the trip page
           </Link>{" "}
           to use the current itinerary.
+        </p>
+      )}
+
+      {flightStatusAlerts.length > 0 && (
+        <div
+          className="rounded-md border border-danger-dark bg-danger-soft px-4 py-3 text-sm text-danger-dark"
+          role="alert"
+        >
+          <p className="font-medium">Flight status needs your attention</p>
+          <ul className="mt-1 list-inside list-disc">
+            {flightStatusAlerts.map((alert) => (
+              <li key={alert}>{alert}</li>
+            ))}
+          </ul>
+          <p className="mt-1">
+            This plan has not been changed.{" "}
+            <Link
+              href={`/trips/${tripId}`}
+              className="font-medium underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-brand"
+            >
+              Update your itinerary
+            </Link>{" "}
+            with your actual flights, then regenerate the plan.
+          </p>
+        </div>
+      )}
+
+      {flightStatusChangePending && flightStatusAlerts.length === 0 && (
+        <p
+          className="rounded-md border border-warning-dark bg-warning-soft px-4 py-3 text-sm text-warning-dark"
+          role="status"
+        >
+          Verified flight-status changes are not reflected in this plan yet.{" "}
+          <Link
+            href={`/flight-status?trip=${tripId}`}
+            className="font-medium underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-brand"
+          >
+            Review and update the plan
+          </Link>
+          .
+        </p>
+      )}
+
+      {plan.adjustmentNote && (
+        <p className="rounded-md border border-brand/30 bg-brand-soft px-4 py-3 text-sm text-brand-dark">
+          {plan.adjustmentNote}
         </p>
       )}
 

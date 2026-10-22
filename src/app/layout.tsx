@@ -44,6 +44,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                     Daily dashboard
                   </Link>
                 </li>
+                <li>
+                  <Link
+                    href="/flight-status"
+                    className="text-slate-600 underline-offset-4 hover:text-surface-strong hover:underline"
+                  >
+                    Flight status
+                  </Link>
+                </li>
               </ul>
             </nav>
           </div>

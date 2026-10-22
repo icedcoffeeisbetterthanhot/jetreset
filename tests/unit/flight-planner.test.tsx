@@ -2,6 +2,8 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { FlightPlanner } from "@components/trips/FlightPlanner";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+
 const segment = {
   id: 12,
   airline: "Example Air",

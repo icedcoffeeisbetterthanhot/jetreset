@@ -25,14 +25,23 @@ export interface RecoveryPlanView {
   avoidCaffeine: boolean;
   preparationDaysAvailable: number;
   assumptions: string[];
+  /** Route endpoints the plan was built from (null for plans created before these were stored). */
+  routeDepartureAt?: string | null;
+  routeArrivalAt?: string | null;
+  /** Explanation of applied flight-status changes, when any. */
+  adjustmentNote?: string | null;
+  adjustedAt?: string | null;
   activities: RecoveryActivityView[];
 }
 
 export interface StoredRecoveryPlan extends Omit<
   RecoveryPlanView,
-  "sourceTripUpdatedAt" | "activities"
+  "sourceTripUpdatedAt" | "activities" | "routeDepartureAt" | "routeArrivalAt" | "adjustedAt"
 > {
   sourceTripUpdatedAt: Date;
+  routeDepartureAt?: Date | null;
+  routeArrivalAt?: Date | null;
+  adjustedAt?: Date | null;
   activities: Array<
     Omit<RecoveryActivityView, "scheduledAt" | "completedAt"> & {
       scheduledAt: Date;
@@ -123,7 +132,10 @@ export function getDailyRecoveryState(input: {
   plan: RecoveryPlanView | null;
   now: Date;
 }): DailyRecoveryState {
-  const { departureAt, arrivalAt, destinationTimeZone, plan, now } = input;
+  const { destinationTimeZone, plan, now } = input;
+  // Plans record the route times they were built from, including applied flight-status times.
+  const departureAt = plan?.routeDepartureAt ? new Date(plan.routeDepartureAt) : input.departureAt;
+  const arrivalAt = plan?.routeArrivalAt ? new Date(plan.routeArrivalAt) : input.arrivalAt;
   const today = getLocalDate(now, destinationTimeZone);
   const destinationArrivalDate = getLocalDate(arrivalAt, destinationTimeZone);
   const isBeforeDeparture = now.getTime() < departureAt.getTime();
@@ -325,6 +337,10 @@ export function toRecoveryPlanView(plan: StoredRecoveryPlan): RecoveryPlanView {
     avoidCaffeine: plan.avoidCaffeine,
     preparationDaysAvailable: plan.preparationDaysAvailable,
     assumptions: plan.assumptions,
+    routeDepartureAt: plan.routeDepartureAt?.toISOString() ?? null,
+    routeArrivalAt: plan.routeArrivalAt?.toISOString() ?? null,
+    adjustmentNote: plan.adjustmentNote ?? null,
+    adjustedAt: plan.adjustedAt?.toISOString() ?? null,
     activities: plan.activities.map((activity) => ({
       id: activity.id,
       activityKey: activity.activityKey,

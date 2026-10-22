@@ -1,6 +1,7 @@
 "use client";
 
 import React, { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AirportSearchSelect } from "@components/trips/AirportSearchSelect";
 import { calculateItinerary, getTimeZoneChangeMinutes } from "@lib/itinerary";
 import { formatDuration, toLocalDateTime } from "@lib/timezone";
@@ -121,6 +122,7 @@ export function FlightPlanner({
   destination,
   initialSegments,
 }: FlightPlannerProps) {
+  const router = useRouter();
   const [segments, setSegments] = useState(initialSegments);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -206,6 +208,8 @@ export function FlightPlanner({
           : [...current, normalizedSegment],
       );
       cancelEditing();
+      // Re-render server data (flight status, plan staleness) that depends on segments.
+      router.refresh();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to save flight.");
     } finally {
@@ -224,6 +228,7 @@ export function FlightPlanner({
       if (!response.ok) throw new Error(await readApiError(response, "Unable to delete flight."));
       setSegments((current) => current.filter((segment) => segment.id !== segmentId));
       if (editingId === segmentId) cancelEditing();
+      router.refresh();
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Unable to delete flight.");
     } finally {

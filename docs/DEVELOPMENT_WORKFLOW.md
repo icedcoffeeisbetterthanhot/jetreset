@@ -24,6 +24,18 @@ This document describes how to set up the project, run checks, and collaborate v
    ```
 
    Edit `DATABASE_URL` in `.env` to match a local PostgreSQL database and user.
+
+   Optional: to enable live flight status, add an Aviationstack access key
+   (https://aviationstack.com/pricing; the free plan allows 100 requests per
+   month for non-commercial use and covers real-time flights only):
+
+   ```dotenv
+   AVIATIONSTACK_API_KEY=your-access-key
+   ```
+
+   Without it the app still works; the trip page states that live flight status
+   is not configured and no status is shown. Restart the dev server after
+   changing `.env`.
    The `.env` file contains local credentials and is ignored by Git. Never commit
    it or paste its contents into issue reports.
 

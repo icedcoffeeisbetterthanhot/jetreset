@@ -55,6 +55,12 @@ export default async function TripDetailsPage({ params }: TripDetailsPageProps) 
         >
           Open daily dashboard
         </Link>
+        <Link
+          href={`/flight-status?trip=${trip.id}`}
+          className="text-sm font-medium text-brand-dark underline-offset-4 hover:underline"
+        >
+          Flight status
+        </Link>
       </nav>
 
       <header className="mt-6 mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -108,7 +114,29 @@ export default async function TripDetailsPage({ params }: TripDetailsPageProps) 
           scheduledArrivalAt: segment.scheduledArrivalAt.toISOString(),
         }))}
       />
+      {(recovery.flightStatusAlerts.length > 0 || recovery.flightStatusChangePending) && (
+        <p
+          role="status"
+          className={`mt-10 rounded-md border px-4 py-3 text-sm ${
+            recovery.flightStatusAlerts.length > 0
+              ? "border-danger-dark bg-danger-soft text-danger-dark"
+              : "border-warning-dark bg-warning-soft text-warning-dark"
+          }`}
+        >
+          {recovery.flightStatusAlerts.length > 0
+            ? "A flight on this trip has been cancelled or diverted."
+            : "Verified flight-status changes are not reflected in the recovery plan yet."}{" "}
+          <Link
+            href={`/flight-status?trip=${trip.id}`}
+            className="font-medium underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-brand"
+          >
+            Review flight status
+          </Link>
+          .
+        </p>
+      )}
       <RecoveryDashboard
+        key={recovery.plan?.updatedAt.toISOString() ?? "no-plan"}
         tripId={trip.id}
         departureAt={trip.departureAt.toISOString()}
         arrivalAt={trip.arrivalAt.toISOString()}

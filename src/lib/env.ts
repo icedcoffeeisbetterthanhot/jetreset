@@ -29,3 +29,31 @@ export function getServerEnv(): ServerEnv {
   cachedEnv = result.data;
   return cachedEnv;
 }
+
+const aviationstackKeySchema = z
+  .string()
+  .max(200, "AVIATIONSTACK_API_KEY is too long")
+  .regex(/^[A-Za-z0-9]+$/, "AVIATIONSTACK_API_KEY contains unexpected characters");
+
+export interface FlightStatusProviderConfig {
+  provider: "aviationstack";
+  apiKey: string;
+}
+
+/**
+ * Returns the flight-status provider configuration, or null when no provider
+ * key is set. Server-only: the key must never reach client bundles or logs.
+ */
+export function getFlightStatusProviderConfig(): FlightStatusProviderConfig | null {
+  const rawKey = process.env.AVIATIONSTACK_API_KEY?.trim();
+  if (!rawKey) return null;
+
+  const result = aviationstackKeySchema.safeParse(rawKey);
+  if (!result.success) {
+    // Report only the validation message, never the key value.
+    throw new Error(
+      `Invalid flight-status provider configuration: ${result.error.errors[0]?.message}`,
+    );
+  }
+  return { provider: "aviationstack", apiKey: result.data };
+}

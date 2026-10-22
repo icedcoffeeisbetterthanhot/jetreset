@@ -32,27 +32,68 @@ model Trip {
 }
 
 model FlightSegment {
-  id                   Int      @id @default(autoincrement())
+  id                   Int                   @id @default(autoincrement())
   tripId               Int
-  trip                 Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  airline              String?  @db.VarChar(120)
-  flightNumber         String?  @db.VarChar(32)
-  departureAirportCode String   @db.VarChar(3)
-  departureAirportName String   @db.VarChar(200)
-  departureAirportCity String?  @db.VarChar(120)
-  departureCountryCode String?  @db.VarChar(2)
-  departureTimeZone    String   @db.VarChar(100)
-  arrivalAirportCode   String   @db.VarChar(3)
-  arrivalAirportName   String   @db.VarChar(200)
-  arrivalAirportCity   String?  @db.VarChar(120)
-  arrivalCountryCode   String?  @db.VarChar(2)
-  arrivalTimeZone      String   @db.VarChar(100)
+  trip                 Trip                  @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  airline              String?               @db.VarChar(120)
+  flightNumber         String?               @db.VarChar(32)
+  departureAirportCode String                @db.VarChar(3)
+  departureAirportName String                @db.VarChar(200)
+  departureAirportCity String?               @db.VarChar(120)
+  departureCountryCode String?               @db.VarChar(2)
+  departureTimeZone    String                @db.VarChar(100)
+  arrivalAirportCode   String                @db.VarChar(3)
+  arrivalAirportName   String                @db.VarChar(200)
+  arrivalAirportCity   String?               @db.VarChar(120)
+  arrivalCountryCode   String?               @db.VarChar(2)
+  arrivalTimeZone      String                @db.VarChar(100)
   scheduledDepartureAt DateTime
   scheduledArrivalAt   DateTime
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  statusSnapshot       FlightStatusSnapshot?
 
   @@index([tripId, scheduledDepartureAt])
+}
+
+enum FlightStatusLookupResult {
+  found
+  not_found
+}
+
+enum FlightStatusCode {
+  unknown
+  scheduled
+  delayed
+  departed
+  arrived
+  cancelled
+  possibly_cancelled
+  diverted
+}
+
+/// Latest verified provider status for one flight segment. Provider times are
+/// stored separately from the segment's own scheduled times, which are never
+/// rewritten by status updates.
+model FlightStatusSnapshot {
+  id                           Int                      @id @default(autoincrement())
+  segmentId                    Int                      @unique
+  segment                      FlightSegment            @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  /// Segment updatedAt at lookup time; a later itinerary edit invalidates the snapshot.
+  sourceSegmentUpdatedAt       DateTime
+  provider                     String                   @db.VarChar(40)
+  lookupResult                 FlightStatusLookupResult
+  status                       FlightStatusCode         @default(unknown)
+  providerScheduledDepartureAt DateTime?
+  estimatedDepartureAt         DateTime?
+  actualDepartureAt            DateTime?
+  providerScheduledArrivalAt   DateTime?
+  estimatedArrivalAt           DateTime?
+  actualArrivalAt              DateTime?
+  providerUpdatedAt            DateTime?
+  fetchedAt                    DateTime
+  createdAt                    DateTime                 @default(now())
+  updatedAt                    DateTime                 @updatedAt
 }
 
 enum RecoveryActivityType {
@@ -87,6 +128,13 @@ model RecoveryPlan {
   avoidCaffeine             Boolean            @default(false)
   preparationDaysAvailable  Int                @default(0)
   assumptions               String[]
+  /// Route endpoints used for this plan, including applied flight-status times.
+  routeDepartureAt          DateTime?
+  routeArrivalAt            DateTime?
+  /// Hash of the material flight-status times the plan was generated with.
+  flightStatusSignature     String?            @db.VarChar(64)
+  adjustmentNote            String?            @db.VarChar(1000)
+  adjustedAt                DateTime?
   generatedAt               DateTime           @default(now())
   updatedAt                 DateTime           @updatedAt
   activities                RecoveryActivity[]

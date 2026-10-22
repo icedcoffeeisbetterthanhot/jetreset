@@ -5,6 +5,12 @@ import type { RecoveryPlanDraft } from "@lib/recoveryPlan";
 import { prisma } from "@server/db";
 import { TripInputError, TripNotFoundError } from "@server/tripService";
 import { RecoveryActivityNotFoundError } from "@server/recoveryErrors";
+import { FlightStatusPlanConflictError } from "@server/flightStatusErrors";
+import {
+  flightStatusSegmentSelect,
+  summarizeFlightStatus,
+  type FlightStatusSummary,
+} from "@server/flightStatusService";
 
 const recoveryPreferencesSchema = z.object({
   targetBedtime: z
@@ -35,14 +41,29 @@ function getSourceItineraryHash(
   return createHash("sha256").update(source).digest("hex");
 }
 
+const MAX_NOTE_LENGTH = 1000;
+
+/** Explains which verified flight-status changes a plan reflects. */
+function adjustmentNote(summary: FlightStatusSummary, intro: string): string | null {
+  if (!summary.signature) return null;
+  const note = `${intro} ${summary.adjustments.join("; ")}.`;
+  return note.length > MAX_NOTE_LENGTH ? `${note.slice(0, MAX_NOTE_LENGTH - 1)}…` : note;
+}
+
 function planFields(
   draft: RecoveryPlanDraft,
   sourceTripUpdatedAt: Date,
   sourceItineraryHash: string,
+  flightStatus: { signature: string | null; note: string | null; adjustedAt: Date | null },
 ) {
   return {
     sourceTripUpdatedAt,
     sourceItineraryHash,
+    routeDepartureAt: draft.routeDepartureAt,
+    routeArrivalAt: draft.routeArrivalAt,
+    flightStatusSignature: flightStatus.signature,
+    adjustmentNote: flightStatus.note,
+    adjustedAt: flightStatus.adjustedAt,
     destinationTimeZone: draft.destinationTimeZone,
     journeyDurationMinutes: draft.journeyDurationMinutes,
     direction: draft.direction,
@@ -75,16 +96,24 @@ export async function getRecoveryPlan(tripId: number) {
     where: { id: tripId },
     include: {
       recoveryPlan: { include: { activities: { orderBy: { scheduledAt: "asc" } } } },
-      flightSegments: { select: { id: true, updatedAt: true } },
+      flightSegments: {
+        orderBy: [{ scheduledDepartureAt: "asc" }, { id: "asc" }],
+        select: flightStatusSegmentSelect,
+      },
     },
   });
   if (!trip) throw new TripNotFoundError();
 
   const sourceItineraryHash = getSourceItineraryHash(trip.updatedAt, trip.flightSegments);
+  const flightStatus = summarizeFlightStatus(trip.flightSegments);
   return {
     plan: trip.recoveryPlan,
     isOutOfDate:
       trip.recoveryPlan !== null && trip.recoveryPlan.sourceItineraryHash !== sourceItineraryHash,
+    flightStatusChangePending:
+      trip.recoveryPlan !== null &&
+      flightStatus.signature !== (trip.recoveryPlan.flightStatusSignature ?? null),
+    flightStatusAlerts: flightStatus.blockingAlerts,
   };
 }
 
@@ -127,12 +156,18 @@ export async function generateOrRefreshRecoveryPlan(tripId: number, input: unkno
 
   const trip = await prisma.trip.findUnique({
     where: { id: tripId },
-    include: { flightSegments: { orderBy: { scheduledDepartureAt: "asc" } } },
+    include: {
+      flightSegments: {
+        orderBy: [{ scheduledDepartureAt: "asc" }, { id: "asc" }],
+        select: flightStatusSegmentSelect,
+      },
+    },
   });
   if (!trip) throw new TripNotFoundError();
 
   const sourceTripUpdatedAt = trip.updatedAt;
   const sourceItineraryHash = getSourceItineraryHash(trip.updatedAt, trip.flightSegments);
+  const flightStatus = summarizeFlightStatus(trip.flightSegments);
   let draft: RecoveryPlanDraft;
   try {
     draft = generateRecoveryPlan({
@@ -140,12 +175,7 @@ export async function generateOrRefreshRecoveryPlan(tripId: number, input: unkno
       arrivalAt: trip.arrivalAt,
       originTimeZone: trip.originTimeZone,
       destinationTimeZone: trip.destinationTimeZone,
-      flights: trip.flightSegments.map((segment) => ({
-        departureAt: segment.scheduledDepartureAt,
-        arrivalAt: segment.scheduledArrivalAt,
-        departureTimeZone: segment.departureTimeZone,
-        arrivalTimeZone: segment.arrivalTimeZone,
-      })),
+      flights: flightStatus.effectiveFlights,
       preferences: parsedPreferences.data,
     });
   } catch (error) {
@@ -154,7 +184,11 @@ export async function generateOrRefreshRecoveryPlan(tripId: number, input: unkno
     );
   }
 
-  const fields = planFields(draft, sourceTripUpdatedAt, sourceItineraryHash);
+  const fields = planFields(draft, sourceTripUpdatedAt, sourceItineraryHash, {
+    signature: flightStatus.signature,
+    note: adjustmentNote(flightStatus, "This plan uses verified flight-status times:"),
+    adjustedAt: flightStatus.signature ? new Date() : null,
+  });
   const activities = activityRows(draft);
   await prisma.$transaction(async (transaction) => {
     const plan = await transaction.recoveryPlan.upsert({
@@ -169,6 +203,95 @@ export async function generateOrRefreshRecoveryPlan(tripId: number, input: unkno
     });
     await transaction.recoveryActivity.createMany({
       data: activities.map((activity) => ({ ...activity, planId: plan.id })),
+      skipDuplicates: true,
+    });
+  });
+
+  return getRecoveryPlan(tripId);
+}
+
+/**
+ * Applies verified flight-status changes to an existing plan. Activities
+ * scheduled before `now` are never changed, completed activities are kept,
+ * and only future uncompleted guidance that no longer matches is replaced.
+ */
+export async function applyFlightStatusToRecoveryPlan(tripId: number, now = new Date()) {
+  validateId(tripId, "Trip ID");
+  const trip = await prisma.trip.findUnique({
+    where: { id: tripId },
+    include: {
+      recoveryPlan: true,
+      flightSegments: {
+        orderBy: [{ scheduledDepartureAt: "asc" }, { id: "asc" }],
+        select: flightStatusSegmentSelect,
+      },
+    },
+  });
+  if (!trip) throw new TripNotFoundError();
+  const plan = trip.recoveryPlan;
+  if (!plan) throw new TripInputError("Generate a recovery plan before applying flight status.");
+  if (plan.sourceItineraryHash !== getSourceItineraryHash(trip.updatedAt, trip.flightSegments)) {
+    throw new FlightStatusPlanConflictError(
+      "The itinerary changed after this plan was generated. Regenerate the plan instead; it will include the current flight status.",
+    );
+  }
+
+  const flightStatus = summarizeFlightStatus(trip.flightSegments);
+  if (flightStatus.blockingAlerts.length) {
+    throw new FlightStatusPlanConflictError(
+      `${flightStatus.blockingAlerts.join("; ")}. Update the itinerary with your actual flights, then regenerate the plan.`,
+    );
+  }
+  if (flightStatus.signature === plan.flightStatusSignature) return getRecoveryPlan(tripId);
+
+  let draft: RecoveryPlanDraft;
+  try {
+    draft = generateRecoveryPlan({
+      departureAt: trip.departureAt,
+      arrivalAt: trip.arrivalAt,
+      originTimeZone: trip.originTimeZone,
+      destinationTimeZone: trip.destinationTimeZone,
+      flights: flightStatus.effectiveFlights,
+      preferences: {
+        targetBedtime: plan.targetBedtime,
+        targetWakeTime: plan.targetWakeTime,
+        avoidCaffeine: plan.avoidCaffeine,
+      },
+      // Keep the original preparation window so existing preparation guidance is stable.
+      referenceDate: plan.generatedAt,
+    });
+  } catch (error) {
+    throw new TripInputError(
+      error instanceof Error ? error.message : "Unable to adjust this recovery plan.",
+    );
+  }
+
+  const futureActivities = activityRows(draft).filter(
+    (activity) => activity.scheduledAt.getTime() >= now.getTime(),
+  );
+  const fields = planFields(draft, plan.sourceTripUpdatedAt, plan.sourceItineraryHash, {
+    signature: flightStatus.signature,
+    note:
+      adjustmentNote(
+        flightStatus,
+        "Future guidance was recalculated for verified flight-status changes; earlier and completed activities were kept:",
+      ) ??
+      "Future guidance was recalculated because the flights are back on their saved schedule; earlier and completed activities were kept.",
+    adjustedAt: now,
+  });
+
+  await prisma.$transaction(async (transaction) => {
+    await transaction.recoveryPlan.update({ where: { id: plan.id }, data: fields });
+    await transaction.recoveryActivity.deleteMany({
+      where: {
+        planId: plan.id,
+        completedAt: null,
+        scheduledAt: { gte: now },
+        activityKey: { notIn: futureActivities.map((activity) => activity.activityKey) },
+      },
+    });
+    await transaction.recoveryActivity.createMany({
+      data: futureActivities.map((activity) => ({ ...activity, planId: plan.id })),
       skipDuplicates: true,
     });
   });

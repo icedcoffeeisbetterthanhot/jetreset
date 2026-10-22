@@ -184,6 +184,11 @@ export function RecoveryDashboard({
                 matches.
               </p>
             )}
+            {plan.adjustmentNote && (
+              <p className="rounded-md border border-brand/30 bg-brand-soft px-4 py-3 text-sm text-brand-dark">
+                {plan.adjustmentNote}
+              </p>
+            )}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
