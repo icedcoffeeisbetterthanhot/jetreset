@@ -26,9 +26,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 JetReset
               </span>
             </Link>
-            <nav aria-label="Primary">
-              <span className="text-sm text-slate-500">Premium jet lag recovery, coming soon.</span>
-            </nav>
           </div>
         </header>
 
