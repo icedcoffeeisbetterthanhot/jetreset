@@ -109,6 +109,42 @@ function formatLocalClock(value: string, timeZone: string): string {
   }).format(new Date(value));
 }
 
+export interface ActivityTimes {
+  /** Local start, e.g. "12:30". */
+  start: string;
+  /** Local end, or null for activities created before end times were stored. */
+  end: string | null;
+  /** Local days between start and end (1 for overnight sleep). */
+  endDayOffset: number;
+  durationMinutes: number | null;
+}
+
+export function getActivityTimes(
+  activity: Pick<RecoveryActivityView, "scheduledAt" | "endsAt" | "timeZone">,
+): ActivityTimes {
+  const start = formatLocalClock(activity.scheduledAt, activity.timeZone);
+  if (!activity.endsAt) return { start, end: null, endDayOffset: 0, durationMinutes: null };
+  return {
+    start,
+    end: formatLocalClock(activity.endsAt, activity.timeZone),
+    endDayOffset: calendarDaysBetween(
+      getLocalDate(new Date(activity.scheduledAt), activity.timeZone),
+      getLocalDate(new Date(activity.endsAt), activity.timeZone),
+    ),
+    durationMinutes: Math.round(
+      (new Date(activity.endsAt).getTime() - new Date(activity.scheduledAt).getTime()) / 60_000,
+    ),
+  };
+}
+
+/** Short duration label, e.g. "10 min", "1 h 30 min", "9 h". */
+export function formatActivityDuration(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  if (!hours) return `${remainder} min`;
+  return remainder ? `${hours} h ${remainder} min` : `${hours} h`;
+}
+
 /**
  * Formats an activity's local start and end, e.g. "13:30–14:00" or
  * "22:00–07:00 next day". Activities without a stored end show the start only.
@@ -116,14 +152,16 @@ function formatLocalClock(value: string, timeZone: string): string {
 export function formatActivityTimeRange(
   activity: Pick<RecoveryActivityView, "scheduledAt" | "endsAt" | "timeZone">,
 ): string {
-  const start = formatLocalClock(activity.scheduledAt, activity.timeZone);
-  if (!activity.endsAt) return start;
-  const dayOffset = calendarDaysBetween(
-    getLocalDate(new Date(activity.scheduledAt), activity.timeZone),
-    getLocalDate(new Date(activity.endsAt), activity.timeZone),
-  );
-  const suffix = dayOffset === 1 ? " next day" : dayOffset > 1 ? ` (+${dayOffset} days)` : "";
-  return `${start}–${formatLocalClock(activity.endsAt, activity.timeZone)}${suffix}`;
+  const { start, end, endDayOffset } = getActivityTimes(activity);
+  if (!end) return start;
+  const suffix =
+    endDayOffset === 1 ? " next day" : endDayOffset > 1 ? ` (+${endDayOffset} days)` : "";
+  return `${start}–${end}${suffix}`;
+}
+
+/** True when any activity in the plan predates stored end times (the plan needs regenerating). */
+export function planLacksEndTimes(plan: Pick<RecoveryPlanView, "activities">): boolean {
+  return plan.activities.some((activity) => !activity.endsAt);
 }
 
 export function offsetDescription(minutes: number): string {

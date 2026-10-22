@@ -6,6 +6,7 @@ import type { RecoveryActivityType } from "@lib/recoveryPlan";
 import {
   formatActivityTimeRange,
   getDailyRecoveryState,
+  planLacksEndTimes,
   getDefaultCalendarDay,
   getPlanCalendarDays,
   offsetDescription,
@@ -178,6 +179,23 @@ export function DailyDashboard({
             Review and update the plan
           </Link>
           .
+        </p>
+      )}
+
+      {planLacksEndTimes(plan) && (
+        <p
+          className="rounded-md border border-brand/30 bg-brand-soft px-4 py-3 text-sm text-brand-dark"
+          role="status"
+        >
+          This plan was created before activity end times and optional naps were added, so only
+          start times are shown.{" "}
+          <Link
+            href={`/trips/${tripId}`}
+            className="font-medium underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-brand"
+          >
+            Regenerate the plan on the trip page
+          </Link>{" "}
+          to see start and end times for every activity.
         </p>
       )}
 

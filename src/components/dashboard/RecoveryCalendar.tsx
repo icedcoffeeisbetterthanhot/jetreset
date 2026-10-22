@@ -6,7 +6,8 @@ import {
   getCalendarHourSlots,
   getLocalDate,
   getLocalHour,
-  formatActivityTimeRange,
+  formatActivityDuration,
+  getActivityTimes,
   type PlanCalendarDay,
   type RecoveryActivityView,
 } from "@lib/recoveryDashboard";
@@ -248,8 +249,7 @@ function CalendarEvent({
   const style = CATEGORY_STYLES[activity.type];
   const isCompleted = activity.completedAt !== null;
   const inputId = `calendar-activity-${activity.id}`;
-  const time = formatClock(new Date(activity.scheduledAt), activity.timeZone);
-  const timeRange = formatActivityTimeRange(activity);
+  const times = getActivityTimes(activity);
 
   return (
     <div
@@ -257,24 +257,46 @@ function CalendarEvent({
         isCompleted ? "border-success-dark/20 bg-success-soft" : "border-slate-200 bg-surface"
       }`}
     >
-      <span
-        className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md ring-1 ${style.badge}`}
-      >
-        <ActivityIcon type={activity.type} className="h-5 w-5" />
-      </span>
-      <label htmlFor={inputId} className="min-w-0 flex-1 cursor-pointer">
-        <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="text-sm font-semibold tabular-nums text-surface-strong">
-            <time dateTime={activity.scheduledAt}>{time}</time>
-            {timeRange !== time && (
-              <>
-                <span aria-hidden="true">–</span>
-                <span className="sr-only"> until </span>
-                {activity.endsAt && (
-                  <time dateTime={activity.endsAt}>{timeRange.slice(time.length + 1)}</time>
-                )}
-              </>
+      <div className="w-[4.75rem] shrink-0 border-r border-slate-200 pr-3 tabular-nums">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Start</p>
+        <time
+          dateTime={activity.scheduledAt}
+          className="block text-base font-semibold leading-tight text-surface-strong"
+        >
+          {times.start}
+        </time>
+        {times.end && activity.endsAt ? (
+          <>
+            <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              End
+            </p>
+            <time
+              dateTime={activity.endsAt}
+              className="block text-base font-semibold leading-tight text-surface-strong"
+            >
+              {times.end}
+            </time>
+            {times.endDayOffset > 0 && (
+              <span className="block text-[10px] font-medium text-slate-500">
+                {times.endDayOffset === 1 ? "next day" : `+${times.endDayOffset} days`}
+              </span>
             )}
+            {times.durationMinutes !== null && (
+              <span className="mt-1.5 inline-block whitespace-nowrap rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                {formatActivityDuration(times.durationMinutes)}
+              </span>
+            )}
+          </>
+        ) : (
+          <p className="mt-1.5 text-[10px] leading-tight text-slate-500">End time not set</p>
+        )}
+      </div>
+      <label htmlFor={inputId} className="min-w-0 flex-1 cursor-pointer">
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span
+            className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md ring-1 ${style.badge}`}
+          >
+            <ActivityIcon type={activity.type} className="h-3.5 w-3.5" />
           </span>
           <span className="text-xs text-slate-500">{style.label}</span>
           <span
@@ -301,7 +323,7 @@ function CalendarEvent({
         disabled={disabled}
         onChange={() => onToggle(activity)}
         className="mt-1 h-5 w-5 shrink-0 rounded border-slate-300 text-brand focus-visible:ring-brand"
-        aria-label={`${isCompleted ? "Mark incomplete" : "Mark complete"}: ${activity.title} at ${time}`}
+        aria-label={`${isCompleted ? "Mark incomplete" : "Mark complete"}: ${activity.title} at ${times.start}`}
       />
     </div>
   );

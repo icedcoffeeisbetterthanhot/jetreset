@@ -5,6 +5,7 @@ import {
   ACTIVITY_LABELS,
   formatActivityTimeRange,
   getDailyRecoveryState,
+  planLacksEndTimes,
   offsetDescription,
   type RecoveryActivityView,
   type RecoveryPlanView,
@@ -201,6 +202,15 @@ export function RecoveryDashboard({
                 This plan was based on earlier trip details. Regenerate it to use the current
                 itinerary. Completed activities will be preserved where their schedule still
                 matches.
+              </p>
+            )}
+            {planLacksEndTimes(plan) && (
+              <p
+                className="rounded-md border border-brand/30 bg-brand-soft px-4 py-3 text-sm text-brand-dark"
+                role="status"
+              >
+                This plan was created before activity end times and optional naps were added. Use
+                &ldquo;Adjust preferences and regenerate&rdquo; below to update it.
               </p>
             )}
             {plan.adjustmentNote && (

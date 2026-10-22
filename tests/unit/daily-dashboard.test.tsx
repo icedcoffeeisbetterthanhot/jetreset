@@ -144,9 +144,17 @@ describe("DailyDashboard", () => {
     ]);
     expect(within(schedule).getByText("Now · 10:00")).toBeInTheDocument();
     expect(within(schedule).getByText("13:15")).toBeInTheDocument();
-    expect(within(schedule).getByText("Lunch").closest("label")).toHaveTextContent(
-      /12:30–\s*until\s*13:15/,
-    );
+    const lunchCard = within(schedule).getByRole("checkbox", {
+      name: "Mark complete: Lunch at 12:30",
+    }).parentElement as HTMLElement;
+    expect(lunchCard).toHaveTextContent(/Start\s*12:30\s*End\s*13:15\s*45 min/);
+    const waterCard = within(schedule).getByRole("checkbox", {
+      name: "Mark complete: Pause for water at 11:00",
+    }).parentElement as HTMLElement;
+    expect(waterCard).toHaveTextContent("End time not set");
+    expect(
+      screen.getByRole("link", { name: "Regenerate the plan on the trip page" }),
+    ).toHaveAttribute("href", "/trips/4");
     expect(within(schedule).getByText("13:00")).toBeInTheDocument();
     expect(within(schedule).getAllByText("Completed")).toHaveLength(1);
     expect(within(schedule).getAllByText("Planned")).toHaveLength(5);
