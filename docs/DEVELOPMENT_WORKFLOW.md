@@ -48,6 +48,10 @@ This document describes how to set up the project, run checks, and collaborate v
    npm run db:check
    ```
 
+   If the application reports that a Prisma model delegate is undefined, stop
+   the dev server, run `npm run db:generate`, and restart the server. On Windows,
+   the running server can lock the Prisma query engine and prevent regeneration.
+
    `migrate deploy` applies the migrations already in this repository and does
    not create a shadow database. To create a new migration during development,
    use `npm run db:migrate -- --name <migration_name>`; Prisma's development

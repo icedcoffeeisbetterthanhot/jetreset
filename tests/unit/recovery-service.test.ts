@@ -2,12 +2,14 @@ import { createHash } from "node:crypto";
 import {
   getRecoveryPlan,
   generateOrRefreshRecoveryPlan,
+  listDashboardTrips,
   setRecoveryActivityCompleted,
 } from "@server/recoveryService";
 import { TripInputError } from "@server/tripService";
 
 const mocks = vi.hoisted(() => ({
   tripFindUnique: vi.fn(),
+  tripFindMany: vi.fn(),
   planUpsert: vi.fn(),
   activityDeleteMany: vi.fn(),
   activityCreateMany: vi.fn(),
@@ -18,7 +20,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@server/db", () => ({
   prisma: {
-    trip: { findUnique: mocks.tripFindUnique },
+    trip: { findUnique: mocks.tripFindUnique, findMany: mocks.tripFindMany },
     recoveryPlan: { upsert: mocks.planUpsert },
     recoveryActivity: {
       deleteMany: mocks.activityDeleteMany,
@@ -179,5 +181,34 @@ describe("recovery service", () => {
       "Recovery activity not found.",
     );
     expect(mocks.activityFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("lists dashboard trips with plan presence and the last scheduled activity", async () => {
+    const planEndsAt = new Date("2026-05-04T02:00:00.000Z");
+    mocks.tripFindMany.mockResolvedValue([
+      { ...trip, recoveryPlan: { activities: [{ scheduledAt: planEndsAt }] } },
+      { ...trip, id: 6, recoveryPlan: null },
+    ]);
+
+    const trips = await listDashboardTrips();
+
+    expect(mocks.tripFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          recoveryPlan: {
+            select: {
+              activities: {
+                select: { scheduledAt: true },
+                orderBy: { scheduledAt: "desc" },
+                take: 1,
+              },
+            },
+          },
+        }),
+      }),
+    );
+    expect(trips[0]).toMatchObject({ id: 5, hasPlan: true, planEndsAt });
+    expect(trips[0]).not.toHaveProperty("recoveryPlan");
+    expect(trips[1]).toMatchObject({ id: 6, hasPlan: false, planEndsAt: null });
   });
 });

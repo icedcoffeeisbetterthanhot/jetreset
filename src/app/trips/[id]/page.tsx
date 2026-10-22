@@ -5,6 +5,7 @@ import { listFlightSegments } from "@server/flightService";
 import { FlightPlanner } from "@components/trips/FlightPlanner";
 import { RecoveryDashboard } from "@components/trips/RecoveryDashboard";
 import { getRecoveryPlan } from "@server/recoveryService";
+import { toRecoveryPlanView } from "@lib/recoveryDashboard";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -41,12 +42,20 @@ export default async function TripDetailsPage({ params }: TripDetailsPageProps) 
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 md:px-6 md:py-16">
-      <Link
-        href="/trips"
-        className="text-sm font-medium text-brand-dark underline-offset-4 hover:underline"
-      >
-        Back to trips
-      </Link>
+      <nav aria-label="Trip navigation" className="flex flex-wrap gap-x-6 gap-y-2">
+        <Link
+          href="/trips"
+          className="text-sm font-medium text-brand-dark underline-offset-4 hover:underline"
+        >
+          Back to trips
+        </Link>
+        <Link
+          href={`/dashboard?trip=${trip.id}`}
+          className="text-sm font-medium text-brand-dark underline-offset-4 hover:underline"
+        >
+          Open daily dashboard
+        </Link>
+      </nav>
 
       <header className="mt-6 mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
@@ -104,35 +113,7 @@ export default async function TripDetailsPage({ params }: TripDetailsPageProps) 
         departureAt={trip.departureAt.toISOString()}
         arrivalAt={trip.arrivalAt.toISOString()}
         destinationTimeZone={trip.destinationTimeZone}
-        initialPlan={
-          recovery.plan
-            ? {
-                sourceTripUpdatedAt: recovery.plan.sourceTripUpdatedAt.toISOString(),
-                destinationTimeZone: recovery.plan.destinationTimeZone,
-                journeyDurationMinutes: recovery.plan.journeyDurationMinutes,
-                direction: recovery.plan.direction,
-                timeZoneChangeMinutes: recovery.plan.timeZoneChangeMinutes,
-                estimatedTimeZonesCrossed: recovery.plan.estimatedTimeZonesCrossed,
-                recoveryDays: recovery.plan.recoveryDays,
-                targetBedtime: recovery.plan.targetBedtime,
-                targetWakeTime: recovery.plan.targetWakeTime,
-                avoidCaffeine: recovery.plan.avoidCaffeine,
-                preparationDaysAvailable: recovery.plan.preparationDaysAvailable,
-                assumptions: recovery.plan.assumptions,
-                activities: recovery.plan.activities.map((activity) => ({
-                  id: activity.id,
-                  activityKey: activity.activityKey,
-                  dayNumber: activity.dayNumber,
-                  type: activity.type,
-                  title: activity.title,
-                  guidance: activity.guidance,
-                  scheduledAt: activity.scheduledAt.toISOString(),
-                  completedAt: activity.completedAt?.toISOString() ?? null,
-                  timeZone: activity.timeZone,
-                })),
-              }
-            : null
-        }
+        initialPlan={recovery.plan ? toRecoveryPlanView(recovery.plan) : null}
         initialPlanIsOutOfDate={recovery.isOutOfDate}
       />
     </div>

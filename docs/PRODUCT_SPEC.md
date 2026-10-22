@@ -27,6 +27,14 @@ features:
   guidance.
 - A trip-specific dashboard with trip stage, next target bedtime, flexible
   wake/bedtime preferences, and persisted activity completion.
+- A standalone Daily dashboard (`/dashboard`, linked from the primary
+  navigation and each trip) showing, for one selected or automatically chosen
+  trip: the recovery stage and day, next target sleep and wake times, the next
+  activity, today's progress, and a day-by-day plan calendar. Each day is an
+  hourly schedule of sleep, light-exposure, meal, hydration, exercise, and
+  caffeine guidance with category icons, exact local times, a current-time
+  marker, and planned and completed activities clearly distinguished. Empty states cover no trips,
+  no plan, pre-departure, in-transit, and a finished plan period.
 
 Authentication and ownership enforcement are not yet available. Trip records
 are not protected multi-user data; use this implementation only for trusted

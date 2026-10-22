@@ -28,6 +28,7 @@ src/
           recovery/
             route.ts
             activities/[activityId]/ # Persist activity completion
+    dashboard/  # Daily recovery dashboard for one selected trip
     trips/      # Trip list, details, create, and edit pages
     layout.tsx
     page.tsx
@@ -35,11 +36,13 @@ src/
   components/   # Shared UI components and feature components
     ui/
     layout/
-    trips/
+    dashboard/  # Daily dashboard client component
+    trips/      # Trip, flight, and recovery-plan components; recoveryApi.ts client helpers
   lib/          # Shared utilities, env validation, non-secret configuration
     env.ts
     itinerary.ts
     recoveryPlan.ts
+    recoveryDashboard.ts # Daily stage/progress derivation and trip selection
     timezone.ts
   server/       # Server-only services and data-access code (Prisma client)
     airportService.ts
@@ -130,6 +133,40 @@ scheduled task still matches. A changed trip or flight segment marks the plan
 out of date until refreshed. Activity completion is scoped to its trip's plan.
 The dashboard selects one trip at a time, shows the destination-local stage and
 day, and calculates progress only from persisted activity completion.
+
+### Daily Dashboard Page (`/dashboard`)
+
+The standalone daily dashboard presents one trip's plan as a calendar: summary
+tiles (next sleep/wake targets, next activity, today's progress), a strip of
+plan days (preparation day and recovery days, defaulting to the current one),
+and an hourly schedule for the selected day. Each activity shows its exact
+local time, a category icon and colour (sleep, light exposure, meal, hydration,
+exercise, caffeine), its guidance, and a planned/completed state; a "Now" line
+marks the current time on today's schedule. Icons are inline SVG in
+`components/dashboard/ActivityIcon.tsx` (no icon dependency). Calendar grouping
+(`getPlanCalendarDays`, `getCalendarHourSlots`) uses each activity's own
+stored time zone, so the preparation day is shown in origin-local time.
+
+- `src/lib/recoveryDashboard.ts` is the single, pure source of the stage,
+  recovery-day, today's-activity, and progress derivation. Both the trip-page
+  `RecoveryDashboard` and the `/dashboard` page use it, so they cannot disagree.
+  Day boundaries use the destination-local calendar (origin-local for the
+  pre-departure day).
+- Trip selection: `?trip=<id>` selects a trip explicitly; an invalid or unknown
+  ID returns 404. Without it, `selectDashboardTrip` picks a trip that is in
+  transit or within its plan period (latest departure first), otherwise the
+  next upcoming trip, otherwise the most recently completed trip. A plan's
+  period ends at its last scheduled activity. Trips are never mixed.
+- `listDashboardTrips` in `recoveryService.ts` returns only trip summary fields
+  plus plan presence and the last activity time; the selected plan is loaded
+  with the existing `getRecoveryPlan`.
+- Completion uses the existing trip-scoped `PATCH` activity endpoint through
+  `src/components/trips/recoveryApi.ts`. No new API routes or schema changes.
+- The server passes its render time to the client so hydration is consistent;
+  the client then refreshes "now" every minute so the day, next activity, and
+  sleep targets advance without a reload.
+- Plan generation and preference changes stay on the trip page. The dashboard
+  links there when no plan exists or when the plan is out of date.
 
 ## Future Modules (Not Yet Implemented)
 

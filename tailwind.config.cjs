@@ -24,6 +24,16 @@ module.exports = {
           soft: "#FEF2F2",
           dark: "#991B1B",
         },
+        warning: {
+          DEFAULT: "#F59E0B",
+          soft: "#FFFBEB",
+          dark: "#92400E",
+        },
+        success: {
+          DEFAULT: "#22C55E",
+          soft: "#F0FDF4",
+          dark: "#166534",
+        },
       },
       fontFamily: {
         sans: ["system-ui", "sf-pro-text", "Segoe UI", "Roboto", "sans-serif"],

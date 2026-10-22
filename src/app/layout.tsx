@@ -27,7 +27,24 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               </span>
             </Link>
             <nav aria-label="Primary">
-              <span className="text-sm text-slate-500">Premium jet lag recovery, coming soon.</span>
+              <ul className="flex items-center gap-4 text-sm font-medium">
+                <li>
+                  <Link
+                    href="/trips"
+                    className="text-slate-600 underline-offset-4 hover:text-surface-strong hover:underline"
+                  >
+                    Trips
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/dashboard"
+                    className="text-slate-600 underline-offset-4 hover:text-surface-strong hover:underline"
+                  >
+                    Daily dashboard
+                  </Link>
+                </li>
+              </ul>
             </nav>
           </div>
         </header>
@@ -37,7 +54,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <footer className="border-t border-slate-200 bg-surface-soft">
           <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-4 text-sm text-slate-500 md:flex-row md:items-center md:justify-between md:px-6">
             <p>&copy; {new Date().getFullYear()} JetReset. All rights reserved.</p>
-            <p>Trip planning is in development. Recovery guidance is coming soon.</p>
+            <p>Recovery guidance is general information, not medical advice.</p>
           </div>
         </footer>
       </body>

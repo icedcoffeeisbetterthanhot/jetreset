@@ -86,6 +86,10 @@ Relevant current risks:
   and airport search covered by unit tests.
 - Recovery planning, time-zone handling, preference validation, persistence,
   stale-plan detection, and dashboard progress covered by unit tests.
+- The `/dashboard` page validates the `trip` query parameter as a positive
+  integer (404 otherwise), reads only through server services, and adds no new
+  API routes. Like the rest of the app, it has no ownership checks yet and
+  lists every trip in the database: trusted local development only.
 - Browser smoke test verified with Playwright.
 - Production build (`npm run build`) validates configuration.
 - Prisma connectivity can be tested with `npm run db:check` when PostgreSQL is available.

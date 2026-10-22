@@ -88,6 +88,34 @@ export async function getRecoveryPlan(tripId: number) {
   };
 }
 
+/** Lists trips with the minimal plan context needed to choose a dashboard trip. */
+export async function listDashboardTrips() {
+  const trips = await prisma.trip.findMany({
+    orderBy: { departureAt: "asc" },
+    select: {
+      id: true,
+      name: true,
+      origin: true,
+      destination: true,
+      originTimeZone: true,
+      destinationTimeZone: true,
+      departureAt: true,
+      arrivalAt: true,
+      recoveryPlan: {
+        select: {
+          activities: { select: { scheduledAt: true }, orderBy: { scheduledAt: "desc" }, take: 1 },
+        },
+      },
+    },
+  });
+
+  return trips.map(({ recoveryPlan, ...trip }) => ({
+    ...trip,
+    hasPlan: recoveryPlan !== null,
+    planEndsAt: recoveryPlan?.activities[0]?.scheduledAt ?? null,
+  }));
+}
+
 export async function generateOrRefreshRecoveryPlan(tripId: number, input: unknown) {
   validateId(tripId, "Trip ID");
   const parsedPreferences = recoveryPreferencesSchema.safeParse(input ?? {});

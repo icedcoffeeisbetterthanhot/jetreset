@@ -20,6 +20,10 @@ Defined in `tailwind.config.cjs`:
   - `accent.DEFAULT`, `accent.soft`, `accent.dark`
 - `danger`:
   - `danger.DEFAULT`, `danger.soft`, `danger.dark`
+- `warning` (e.g. out-of-date plan notices):
+  - `warning.DEFAULT`, `warning.soft`, `warning.dark`
+- `success` (e.g. completed activities):
+  - `success.DEFAULT`, `success.soft`, `success.dark`
 
 Use semantic tokens (e.g. `text-surface-strong`, `bg-brand-soft`) instead of arbitrary hex values.
 

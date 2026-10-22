@@ -41,8 +41,8 @@ export default function HomePage() {
               <li>• Built with privacy and security principles from day one.</li>
             </ul>
             <p className="text-xs text-slate-500">
-              Trip creation and management are now available. Recovery guidance, dashboards, and
-              account features will be introduced in future releases.
+              Trips, flight planning, recovery plans, and a daily dashboard are available. Account
+              features will be introduced in future releases.
             </p>
           </div>
         </div>
