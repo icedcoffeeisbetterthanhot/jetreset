@@ -4,9 +4,9 @@ import { ReactNode } from "react";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "JetReset – Calm recovery from jet lag",
+  title: "JetReset – Plan your trip and find your rhythm",
   description:
-    "JetReset helps travellers recover from jet lag with practical, time-aware recovery guidance.",
+    "Organize your trip across time zones, map your flights, and follow practical destination-time recovery guidance with JetReset.",
   icons: {
     icon: "/favicon.ico",
   },
@@ -27,7 +27,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               </span>
             </Link>
             <nav aria-label="Primary">
-              <span className="text-sm text-slate-500">Premium jet lag recovery, coming soon.</span>
+              <Link
+                href="/trips"
+                className="text-sm font-medium text-slate-600 underline-offset-4 hover:text-brand-dark hover:underline"
+              >
+                Your trips
+              </Link>
             </nav>
           </div>
         </header>
@@ -37,7 +42,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <footer className="border-t border-slate-200 bg-surface-soft">
           <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-4 text-sm text-slate-500 md:flex-row md:items-center md:justify-between md:px-6">
             <p>&copy; {new Date().getFullYear()} JetReset. All rights reserved.</p>
-            <p>Trip planning is in development. Recovery guidance is coming soon.</p>
+            <p>Time-aware trip planning and general recovery guidance. No live flight tracking.</p>
           </div>
         </footer>
       </body>
