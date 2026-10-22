@@ -76,7 +76,7 @@ const INELIGIBLE_MESSAGES = {
   no_flight_number: "Add a flight number to this segment to check its status.",
   invalid_flight_number: "The flight number isn't in a recognised format (for example BA117).",
   too_early: `Status checks open ${STATUS_CHECK_DAYS_BEFORE_DEPARTURE} days before departure.`,
-  too_late: `Status checks close ${STATUS_CHECK_DAYS_AFTER_ARRIVAL} days after arrival.`,
+  too_late: `Historical flight status isn't available. Provider checks close ${STATUS_CHECK_DAYS_AFTER_ARRIVAL} days after arrival.`,
 } as const;
 
 function formatLocal(value: string | null, timeZone: string): string {
@@ -301,7 +301,9 @@ function SegmentStatusCard({ segment }: { segment: SegmentFlightStatusView }) {
     ? STATUS_LABELS[found.status]
     : snapshot
       ? { label: "No provider data", tone: "bg-surface-muted text-slate-700" }
-      : null;
+      : !segment.eligibility.eligible && segment.eligibility.reason === "too_late"
+        ? { label: "Historical status unavailable", tone: "bg-surface-muted text-slate-700" }
+        : null;
   const rows = [
     {
       label: "Departure",

@@ -65,6 +65,12 @@ export function AccountNavigation() {
         Flight Status
       </Link>
       <Link
+        href="/travel-metrics"
+        className="text-sm font-medium text-slate-600 underline-offset-4 hover:text-brand-dark hover:underline"
+      >
+        Travel Metrics
+      </Link>
+      <Link
         href="/community"
         className="text-sm font-medium text-slate-600 underline-offset-4 hover:text-brand-dark hover:underline"
       >

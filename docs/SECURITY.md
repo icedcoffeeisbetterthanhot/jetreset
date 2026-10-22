@@ -17,6 +17,10 @@ The current implementation includes:
 - Optional username/password accounts with revocable opaque sessions.
 - Browser-scoped guest identities with a user-confirmed guest-trip transfer.
 - Server-side owner checks for trip, flight, and recovery operations.
+- Owner-scoped travel metrics and CSV exports with private, non-cacheable
+  responses.
+- A local airport-coordinate map with bundled Natural Earth outlines that
+  makes no third-party tile requests.
 - Consent-based friend requests and a username-only public leaderboard.
 - Server-replayed Cloud Dodger runs with server-calculated scores.
 
@@ -51,6 +55,11 @@ The current implementation includes:
   revoked on sign-out. Login attempts are throttled per normalized username.
 - Every trip query and mutation filters by the current account or guest
   session. Flight and recovery access is constrained through the owned trip.
+- Travel reports use the same owner filter and exclude notes and other
+  unrelated trip data. CSV responses use `Cache-Control: private, no-store`;
+  the client-side map plots bundled airport coordinates over a bundled
+  public-domain Natural Earth outline without transmitting travel locations
+  to an external map service.
 - The migration marks existing trips with an isolated legacy guest identifier.
   The development-only legacy claim lets the first local guest session claim
   them; production never auto-assigns them to a visitor.
@@ -148,6 +157,8 @@ Relevant current risks:
 - Airport metadata is sourced from the published OurAirports dataset and
   airport time zones are derived from coordinates. Verify critical airport
   details independently; the bundled directory is not a live provider.
+  Great-circle distances are estimates, and stored airport pairs are not
+  verified aircraft paths.
 - Accounts do not collect or verify email addresses. Password recovery is not
   available; losing a password means the account cannot be recovered.
 - Leaderboard replay validation prevents client-submitted score values from

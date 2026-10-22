@@ -6,6 +6,8 @@ export interface Airport {
   city: string | null;
   countryCode: string | null;
   timeZone: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 const airports = airportData as Airport[];

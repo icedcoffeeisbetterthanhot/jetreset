@@ -39,6 +39,10 @@ describe("AccountNavigation", () => {
       "href",
       "/flight-status",
     );
+    expect(screen.getByRole("link", { name: "Travel Metrics" })).toHaveAttribute(
+      "href",
+      "/travel-metrics",
+    );
 
     fireEvent.click(accountButton);
 

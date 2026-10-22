@@ -4,7 +4,8 @@
 
 JetReset uses a **modular monolith** approach. The repository contains the
 application foundation, trip management, flight planning, recovery features,
-optional account ownership, community features, and the Cloud Dodger game:
+private travel statistics, optional account ownership, community features, and
+the Cloud Dodger game:
 
 - Next.js App Router for routing and server-side rendering.
 - Strict TypeScript for safety and maintainability.
@@ -30,6 +31,7 @@ src/
           recovery/
             route.ts
             activities/[activityId]/ # Persist activity completion
+      travel-metrics/export/ # Owner-scoped downloadable CSV report
       auth/                           # Username/password registration and sessions
       friends/                        # Consent-based friend requests
       game-runs/                      # Server-validated game runs
@@ -38,21 +40,26 @@ src/
             flight-status/ # POST apply verified status changes to the plan
     dashboard/  # Daily recovery dashboard for one selected trip
     flight-status/ # Flight Status page for one selected trip
+    travel-metrics/ # Owner-scoped travel statistics, history, and airport map
     trips/      # Trip list, details, create, and edit pages
     layout.tsx
     page.tsx
     globals.css
+public/
+  world-land.svg # Bundled Natural Earth public-domain land outlines
   components/   # Shared UI components and feature components
     ui/
     layout/
     dashboard/  # Daily Dashboard client component
     trips/      # Trip, flight, and recovery-plan components; recoveryApi.ts client helpers
+    travel-metrics/ # Local SVG airport-location map
   lib/          # Shared utilities, env validation, non-secret configuration
     env.ts
     flightStatus.ts # Flight-status change detection and effective times (pure)
     itinerary.ts
     recoveryPlan.ts
     recoveryDashboard.ts # Daily stage/progress derivation and trip selection
+    travelMetrics.ts # Reporting periods, deduplication, and derived travel metrics (pure)
     timezone.ts
   server/       # Server-only services and data-access code (Prisma client)
     authService.ts
@@ -66,6 +73,7 @@ src/
     recoveryErrors.ts
     recoveryService.ts
     tripService.ts
+    travelMetricsService.ts # Owner-scoped metrics data access
     gameService.ts
   data/
     airports.json # Bundled airport directory
@@ -151,7 +159,9 @@ complete bot or automation defense.
 with IATA codes from [OurAirports](https://github.com/davidmegginson/ourairports-data),
 which publishes the data under the Unlicense/public-domain dedication. Run
 `npm run airports:update` to refresh it. Airport time zones are derived from
-coordinates with the `tz-lookup` library when generating the snapshot. The
+coordinates with the `tz-lookup` library when generating the snapshot; airport
+latitude and longitude are retained for travel-history maps and great-circle
+distance estimates. The
 stored flight segment keeps airport names and IANA zones as a snapshot so
 later directory updates do not silently rewrite itinerary history.
 
@@ -159,6 +169,31 @@ Flight segment timestamps are absolute instants converted from local times in
 the selected airports' time zones. The planner derives flight duration,
 elapsed itinerary time, layovers, and time-zone offset changes. It warns about
 overlapping flights and mismatched transfer airports.
+
+## Travel Metrics and Map
+
+`/travel-metrics` and `/api/travel-metrics/export` read trips through
+`getTripOwnerWhere`, so both the page and its CSV export are limited to the
+current guest session or signed-in account. Reports support the current UTC
+calendar month, trailing six calendar months, and current calendar year.
+Flight counts and time-in-air use saved completed segments; current provider
+actual times are preferred when present, and saved schedules are marked as
+estimates otherwise. Stale snapshots and cancelled, possibly cancelled, or
+diverted segments are excluded. Duplicate segments are deduplicated, and
+overlapping time intervals are merged for duration totals. Airport time is
+included only for adjacent segments with current provider-confirmed actual
+times at the same airport.
+
+Distance is the Haversine great-circle distance between airport coordinates
+from the bundled OurAirports dataset; it is an estimate, not an aircraft
+track. The map uses locally bundled [Natural Earth 1:110m land
+outlines](https://github.com/nvkelso/natural-earth-vector) (public domain) with
+an equirectangular projection and makes no third-party tile requests. It plots
+airport markers and links them to the owner's trip details.
+It deliberately draws no route lines because the saved itinerary does not
+contain verified aircraft tracks; this avoids implying that a straight-line
+estimate is an actual flight path. CSV responses are marked private and
+non-cacheable.
 
 ## Flight-Status Integration
 
@@ -341,7 +376,6 @@ The architecture is compatible with future modules such as:
 
 - Reminders and calendar integrations
 - Broader account preferences
-- Travel statistics and reporting
 
 The remaining roadmap is documented in `README.md`. Keep new modules behind
 the existing server-side service boundary and deliver them one milestone at a
@@ -362,6 +396,7 @@ hashes.
 - **Modular monolith**: Easier for a small team to reason about, with clear boundaries within a single app.
 - **Prisma + PostgreSQL**: Structured, typed access and migrations, appropriate for long-term data integrity.
 - **Airport snapshots**: Airport names and IANA zones are copied onto segments to keep saved itineraries stable across airport-directory updates; deleting a trip cascades to its flight segments.
+- **Private travel reporting**: Metrics and exports query only the current trip owner; the local map avoids external tile requests, and only airport locations are plotted because stored segments do not include aircraft tracks.
 - **Recovery-plan snapshots**: Plans are explicitly regenerated from the current trip and flight schedule; completed activities are retained only for identical activity schedules. Recovery records cascade with their parent trip.
 - **Tailwind tokens**: Semantic color and spacing tokens enable a consistent look across independently developed features.
 - **Strict TypeScript**: Reduces runtime errors and improves API clarity between modules.

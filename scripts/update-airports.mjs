@@ -120,6 +120,8 @@ while (cursor < csv.length) {
     city: field("municipality") || null,
     countryCode: field("iso_country") || null,
     timeZone,
+    latitude,
+    longitude,
   });
 }
 
@@ -131,5 +133,5 @@ if (airports.length === 0) {
 await mkdir(dirname(outputPath), { recursive: true });
 await writeFile(outputPath, `${JSON.stringify(airports)}\n`, "utf8");
 console.log(
-  `Wrote ${airports.length} airports to src/data/airports.json; skipped ${skippedTimeZones} airports without a usable time zone.`,
+  `Wrote ${airports.length} airports with coordinates to src/data/airports.json; skipped ${skippedTimeZones} airports without a usable time zone.`,
 );

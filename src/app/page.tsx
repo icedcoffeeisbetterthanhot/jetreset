@@ -73,8 +73,7 @@ export default function HomePage() {
       </section>
 
       <p className="mx-auto mt-8 max-w-3xl text-center text-xs leading-5 text-slate-500">
-        Recovery guidance is general wellbeing information, not medical advice. Live flight tracking
-        and user accounts are not available.
+        Recovery guidance is general wellbeing information, not medical advice.
       </p>
     </div>
   );

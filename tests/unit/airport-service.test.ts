@@ -6,6 +6,8 @@ describe("airport service", () => {
       code: "LHR",
       city: "London",
       timeZone: "Europe/London",
+      latitude: expect.any(Number),
+      longitude: expect.any(Number),
     });
     expect(findAirport("ZZZ")).toBeNull();
   });

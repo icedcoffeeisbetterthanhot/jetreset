@@ -58,6 +58,11 @@ features:
   account after sign-in.
 - Consent-based friend requests and a global Cloud Dodger leaderboard showing
   only user-chosen usernames and server-replayed high scores.
+- A standalone Travel Metrics page (`/travel-metrics`) with current-month,
+  trailing-six-month, and calendar-year reports, UTC month summaries, saved
+  completed flights, estimate/actual labels, a private CSV download, and an
+  interactive local airport-location map. Distance is a great-circle estimate;
+  route lines are omitted because verified aircraft tracks are not stored.
 
 Guest data is scoped to its browser session and signed-in trip data to its
 account. Production use still requires HTTPS, database backups, and operational
@@ -77,7 +82,6 @@ controls.
 - Reminders and calendar integrations.
 - Broader user preferences and privacy controls.
 - Travel sharing with friends (friend relationships do not grant trip access).
-- Travel statistics and reporting.
 
 Implement the approved roadmap in independently verified milestones. Features
 that require external services must not claim live functionality until those
@@ -95,4 +99,6 @@ services are configured and verified.
 - Recovery guidance is general and not a clinical circadian model or medical
   advice; it does not use personal health data or live daylight information.
   Flight-status changes affect it only when the user applies them.
-- No reminders, exports, maps, or offline capabilities.
+- Recovery-plan exports, reminders, calendar integrations, and offline access
+  are not implemented. Travel statistics are available as CSV; map tiles and
+  verified aircraft-track visualization are not used.

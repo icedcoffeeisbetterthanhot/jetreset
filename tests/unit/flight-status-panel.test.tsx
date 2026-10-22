@@ -240,4 +240,27 @@ describe("FlightStatusPanel", () => {
     });
     expect(screen.getByRole("alert")).toHaveTextContent("Live flight status is not configured.");
   });
+
+  it("labels past flights without provider data as historical status unavailable", () => {
+    render(
+      <FlightStatusPanel
+        tripId={4}
+        initialStatus={{
+          configured: true,
+          legs: [leg()],
+          segments: [
+            {
+              ...segment,
+              scheduledDepartureAt: "2026-01-15T12:00:00.000Z",
+              scheduledArrivalAt: "2026-01-15T20:00:00.000Z",
+              eligibility: { eligible: false, reason: "too_late" },
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Historical status unavailable")).toBeInTheDocument();
+    expect(screen.getByText(/Historical flight status isn't available/)).toBeInTheDocument();
+  });
 });

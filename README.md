@@ -804,9 +804,14 @@ Milestone 8 — Reminders and offline exports
 
 Implement reminder workflows, calendar-related functionality where approved, and reliable downloadable recovery information.
 
-Milestone 9 — Travel metrics and map
+Milestone 9 — Travel metrics and map (implemented)
 
 Implement verified travel statistics, reporting periods, export documents, and travel-history visualisation.
+
+Implementation: [`/travel-metrics`](./src/app/travel-metrics/page.tsx) provides
+monthly, trailing-six-month, and yearly statistics, a private CSV download, and
+an interactive local airport map. Distances are great-circle estimates;
+aircraft route lines are omitted because verified flight tracks are not stored.
 
 Milestone 10 — Preferences and cabin crew mode
 
