@@ -161,6 +161,8 @@ model RecoveryActivity {
   title       String               @db.VarChar(120)
   guidance    String               @db.VarChar(1000)
   scheduledAt DateTime
+  /// End of the activity window; null for activities created before end times were stored.
+  endsAt      DateTime?
   timeZone    String               @db.VarChar(100)
   completedAt DateTime?
   createdAt   DateTime             @default(now())

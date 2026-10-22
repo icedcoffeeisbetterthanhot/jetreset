@@ -46,7 +46,13 @@ const plan: RecoveryPlanView = {
       title: "Pause for water",
       scheduledAt: "2026-06-01T15:00:00.000Z",
     }),
-    activity({ id: 13, type: "meal", title: "Lunch", scheduledAt: "2026-06-01T16:30:00.000Z" }),
+    activity({
+      id: 13,
+      type: "meal",
+      title: "Lunch",
+      scheduledAt: "2026-06-01T16:30:00.000Z",
+      endsAt: "2026-06-01T17:15:00.000Z",
+    }),
     activity({
       id: 14,
       type: "caffeine",
@@ -137,6 +143,10 @@ describe("DailyDashboard", () => {
       "Mark complete: Target bedtime at 22:00",
     ]);
     expect(within(schedule).getByText("Now · 10:00")).toBeInTheDocument();
+    expect(within(schedule).getByText("13:15")).toBeInTheDocument();
+    expect(within(schedule).getByText("Lunch").closest("label")).toHaveTextContent(
+      /12:30–\s*until\s*13:15/,
+    );
     expect(within(schedule).getByText("13:00")).toBeInTheDocument();
     expect(within(schedule).getAllByText("Completed")).toHaveLength(1);
     expect(within(schedule).getAllByText("Planned")).toHaveLength(5);

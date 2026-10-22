@@ -3,6 +3,7 @@
 import React, { FormEvent, useState } from "react";
 import {
   ACTIVITY_LABELS,
+  formatActivityTimeRange,
   getDailyRecoveryState,
   offsetDescription,
   type RecoveryActivityView,
@@ -306,11 +307,7 @@ export function RecoveryDashboard({
                       >
                         <span className="flex flex-wrap items-center gap-2">
                           <span className="text-xs font-medium text-slate-500">
-                            {ACTIVITY_LABELS[activity.type]} ·{" "}
-                            {new Intl.DateTimeFormat("en-GB", {
-                              timeStyle: "short",
-                              timeZone: activity.timeZone,
-                            }).format(new Date(activity.scheduledAt))}
+                            {ACTIVITY_LABELS[activity.type]} · {formatActivityTimeRange(activity)}
                           </span>
                           {activity.completedAt !== null && (
                             <span className="text-xs font-medium text-success-dark">Completed</span>

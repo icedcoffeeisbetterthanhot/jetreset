@@ -205,7 +205,15 @@ arrival plan and one back-home plan. Shared helpers live in
 IANA zones, optional flight segments, a reference date, and limited user
 preferences. It estimates the offset change at the itinerary endpoints and
 creates a 3–7 day destination-local schedule, with an optional pre-departure
-routine reminder when at least one full day remains. It records total elapsed
+routine reminder when at least one full day remains. Every activity has a start
+(`scheduledAt`) and an end (`endsAt`, nullable for activities created before
+end times were stored): for example a 30-minute wake window, 45-minute lunch,
+caffeine window from wake to 14:00 (or a caffeine-free day from wake to
+bedtime), a wind-down from 20:30 (or an hour before an earlier bedtime) to
+bedtime, and overnight sleep from bedtime to the next day's wake target. An
+"Optional short nap" (13:30–14:00, sleep type) is offered on recovery days 1
+and 2 only, with conservative guidance to keep it to 20–30 minutes, skip it if
+not needed, and avoid long or late naps. It records total elapsed
 journey duration from the flight itinerary when available, otherwise from the
 trip's planned times. On arrival day, it does not schedule routine activities
 before the scheduled arrival instant.

@@ -6,6 +6,7 @@ import {
   getCalendarHourSlots,
   getLocalDate,
   getLocalHour,
+  formatActivityTimeRange,
   type PlanCalendarDay,
   type RecoveryActivityView,
 } from "@lib/recoveryDashboard";
@@ -248,6 +249,7 @@ function CalendarEvent({
   const isCompleted = activity.completedAt !== null;
   const inputId = `calendar-activity-${activity.id}`;
   const time = formatClock(new Date(activity.scheduledAt), activity.timeZone);
+  const timeRange = formatActivityTimeRange(activity);
 
   return (
     <div
@@ -262,12 +264,18 @@ function CalendarEvent({
       </span>
       <label htmlFor={inputId} className="min-w-0 flex-1 cursor-pointer">
         <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <time
-            dateTime={activity.scheduledAt}
-            className="text-sm font-semibold tabular-nums text-surface-strong"
-          >
-            {time}
-          </time>
+          <span className="text-sm font-semibold tabular-nums text-surface-strong">
+            <time dateTime={activity.scheduledAt}>{time}</time>
+            {timeRange !== time && (
+              <>
+                <span aria-hidden="true">–</span>
+                <span className="sr-only"> until </span>
+                {activity.endsAt && (
+                  <time dateTime={activity.endsAt}>{timeRange.slice(time.length + 1)}</time>
+                )}
+              </>
+            )}
+          </span>
           <span className="text-xs text-slate-500">{style.label}</span>
           <span
             className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${

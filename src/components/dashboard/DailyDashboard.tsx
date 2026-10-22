@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { RecoveryActivityType } from "@lib/recoveryPlan";
 import {
+  formatActivityTimeRange,
   getDailyRecoveryState,
   getDefaultCalendarDay,
   getPlanCalendarDays,
@@ -43,10 +44,6 @@ function formatDateTime(value: string, timeZone: string): string {
     minute: "2-digit",
     timeZone,
   }).format(new Date(value));
-}
-
-function formatClock(value: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-GB", { timeStyle: "short", timeZone }).format(new Date(value));
 }
 
 export function DailyDashboard({
@@ -233,7 +230,7 @@ export function DailyDashboard({
             label="Next activity today"
             value={
               state.nextActivity
-                ? `${formatClock(state.nextActivity.scheduledAt, state.nextActivity.timeZone)} · ${state.nextActivity.title}`
+                ? `${formatActivityTimeRange(state.nextActivity)} · ${state.nextActivity.title}`
                 : "Nothing else planned"
             }
           />

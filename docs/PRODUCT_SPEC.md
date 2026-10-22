@@ -24,7 +24,9 @@ features:
   journey calculations.
 - A deterministic multi-day recovery-plan estimate with destination-local
   sleep, daylight, meal, hydration, gentle-movement, and conservative caffeine
-  guidance.
+  guidance. Each activity has a start and end time (e.g. lunch 12:30–13:15,
+  sleep 22:00–07:00 next day), and an optional short nap is offered on the
+  first two recovery days.
 - A trip-specific dashboard with trip stage, next target bedtime, flexible
   wake/bedtime preferences, and persisted activity completion.
 - A standalone Daily Dashboard (`/dashboard`, linked from the primary

@@ -10,7 +10,7 @@ const features = [
   },
   {
     number: "02",
-    title: "Organize your flights",
+    title: "Organise your flights",
     description:
       "Add flight segments and review airport-local times, layovers, and journey duration.",
   },

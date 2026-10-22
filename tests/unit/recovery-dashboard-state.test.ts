@@ -1,4 +1,5 @@
 import {
+  formatActivityTimeRange,
   getCalendarHourSlots,
   getDailyRecoveryState,
   getDefaultCalendarDay,
@@ -219,18 +220,22 @@ describe("toRecoveryPlanView", () => {
         {
           ...plan.activities[1],
           scheduledAt: new Date("2026-06-01T16:30:00.000Z"),
+          endsAt: new Date("2026-06-01T17:15:00.000Z"),
           completedAt: new Date("2026-06-01T16:40:00.000Z"),
         },
         {
           ...plan.activities[2],
           scheduledAt: new Date("2026-06-01T22:30:00.000Z"),
+          endsAt: null,
           completedAt: null,
         },
       ],
     });
 
     expect(view.sourceTripUpdatedAt).toBe("2026-05-30T12:00:00.000Z");
+    expect(view.activities[1].endsAt).toBeNull();
     expect(view.activities[0]).toMatchObject({
+      endsAt: "2026-06-01T17:15:00.000Z",
       id: 2,
       scheduledAt: "2026-06-01T16:30:00.000Z",
       completedAt: "2026-06-01T16:40:00.000Z",
@@ -275,5 +280,30 @@ describe("calendar helpers", () => {
   it("reads local hours across daylight-saving and date boundaries", () => {
     expect(getLocalHour(new Date("2026-06-02T02:00:00.000Z"), timeZone)).toBe(22);
     expect(getLocalHour(new Date("2026-01-02T02:00:00.000Z"), timeZone)).toBe(21);
+  });
+});
+
+describe("formatActivityTimeRange", () => {
+  it("shows local start and end, marking overnight ends", () => {
+    expect(
+      formatActivityTimeRange({
+        scheduledAt: "2026-06-01T17:30:00.000Z",
+        endsAt: "2026-06-01T18:00:00.000Z",
+        timeZone,
+      }),
+    ).toBe("13:30–14:00");
+    expect(
+      formatActivityTimeRange({
+        scheduledAt: "2026-06-02T02:00:00.000Z",
+        endsAt: "2026-06-02T11:00:00.000Z",
+        timeZone,
+      }),
+    ).toBe("22:00–07:00 next day");
+  });
+
+  it("falls back to the start time for activities without a stored end", () => {
+    expect(
+      formatActivityTimeRange({ scheduledAt: "2026-06-01T16:30:00.000Z", endsAt: null, timeZone }),
+    ).toBe("12:30");
   });
 });

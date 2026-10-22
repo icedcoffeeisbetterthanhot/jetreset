@@ -8,6 +8,8 @@ export interface RecoveryActivityView {
   title: string;
   guidance: string;
   scheduledAt: string;
+  /** End of the activity window; absent for activities created before end times existed. */
+  endsAt?: string | null;
   timeZone: string;
   completedAt: string | null;
 }
@@ -43,8 +45,9 @@ export interface StoredRecoveryPlan extends Omit<
   routeArrivalAt?: Date | null;
   adjustedAt?: Date | null;
   activities: Array<
-    Omit<RecoveryActivityView, "scheduledAt" | "completedAt"> & {
+    Omit<RecoveryActivityView, "scheduledAt" | "endsAt" | "completedAt"> & {
       scheduledAt: Date;
+      endsAt?: Date | null;
       completedAt: Date | null;
     }
   >;
@@ -95,6 +98,32 @@ export function calendarDaysBetween(start: string, end: string): number {
   const startDate = Date.UTC(startYear, startMonth - 1, startDay);
   const endDate = Date.UTC(endYear, endMonth - 1, endDay);
   return Math.round((endDate - startDate) / 86_400_000);
+}
+
+function formatLocalClock(value: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone,
+  }).format(new Date(value));
+}
+
+/**
+ * Formats an activity's local start and end, e.g. "13:30–14:00" or
+ * "22:00–07:00 next day". Activities without a stored end show the start only.
+ */
+export function formatActivityTimeRange(
+  activity: Pick<RecoveryActivityView, "scheduledAt" | "endsAt" | "timeZone">,
+): string {
+  const start = formatLocalClock(activity.scheduledAt, activity.timeZone);
+  if (!activity.endsAt) return start;
+  const dayOffset = calendarDaysBetween(
+    getLocalDate(new Date(activity.scheduledAt), activity.timeZone),
+    getLocalDate(new Date(activity.endsAt), activity.timeZone),
+  );
+  const suffix = dayOffset === 1 ? " next day" : dayOffset > 1 ? ` (+${dayOffset} days)` : "";
+  return `${start}–${formatLocalClock(activity.endsAt, activity.timeZone)}${suffix}`;
 }
 
 export function offsetDescription(minutes: number): string {
@@ -349,6 +378,7 @@ export function toRecoveryPlanView(plan: StoredRecoveryPlan): RecoveryPlanView {
       title: activity.title,
       guidance: activity.guidance,
       scheduledAt: activity.scheduledAt.toISOString(),
+      endsAt: activity.endsAt?.toISOString() ?? null,
       completedAt: activity.completedAt?.toISOString() ?? null,
       timeZone: activity.timeZone,
     })),
