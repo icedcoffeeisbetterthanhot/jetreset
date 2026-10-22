@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { ReactNode } from "react";
 import Link from "next/link";
+import { AccountNavigation } from "@components/auth/AccountNavigation";
 
 export const metadata: Metadata = {
   title: "JetReset – Plan your trip and find your rhythm",
@@ -27,12 +28,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               </span>
             </Link>
             <nav aria-label="Primary">
-              <Link
-                href="/trips"
-                className="text-sm font-medium text-slate-600 underline-offset-4 hover:text-brand-dark hover:underline"
-              >
-                Your trips
-              </Link>
+              <AccountNavigation />
             </nav>
           </div>
         </header>

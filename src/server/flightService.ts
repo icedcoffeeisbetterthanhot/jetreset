@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TripDateTimeSchema, toZonedInstant } from "@lib/timezone";
 import { prisma } from "@server/db";
 import { findAirport } from "@server/airportService";
-import { TripInputError, TripNotFoundError } from "@server/tripService";
+import { getTripById, TripInputError, TripNotFoundError } from "@server/tripService";
 import { FlightSegmentNotFoundError } from "@server/flightErrors";
 
 const flightSegmentSchema = z.object({
@@ -85,9 +85,7 @@ function isRecordNotFound(error: unknown): boolean {
 
 export async function listFlightSegments(tripId: number) {
   validateId(tripId, "Trip ID");
-  if (!(await prisma.trip.findUnique({ where: { id: tripId }, select: { id: true } }))) {
-    throw new TripNotFoundError();
-  }
+  if (!(await getTripById(tripId))) throw new TripNotFoundError();
 
   return prisma.flightSegment.findMany({
     where: { tripId },
@@ -97,6 +95,7 @@ export async function listFlightSegments(tripId: number) {
 
 export async function createFlightSegment(tripId: number, input: unknown) {
   validateId(tripId, "Trip ID");
+  if (!(await getTripById(tripId))) throw new TripNotFoundError();
 
   try {
     return await prisma.flightSegment.create({
@@ -114,6 +113,7 @@ export async function createFlightSegment(tripId: number, input: unknown) {
 export async function updateFlightSegment(tripId: number, flightSegmentId: number, input: unknown) {
   validateId(tripId, "Trip ID");
   validateId(flightSegmentId, "Flight segment ID");
+  if (!(await getTripById(tripId))) throw new TripNotFoundError();
 
   const existing = await prisma.flightSegment.findFirst({
     where: { id: flightSegmentId, tripId },
@@ -135,6 +135,7 @@ export async function updateFlightSegment(tripId: number, flightSegmentId: numbe
 export async function deleteFlightSegment(tripId: number, flightSegmentId: number) {
   validateId(tripId, "Trip ID");
   validateId(flightSegmentId, "Flight segment ID");
+  if (!(await getTripById(tripId))) throw new TripNotFoundError();
 
   const result = await prisma.flightSegment.deleteMany({
     where: { id: flightSegmentId, tripId },

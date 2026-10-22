@@ -187,7 +187,7 @@ Registration.
 Login and logout.
 Secure session management.
 Appropriate password handling if password-based authentication is selected.
-Password reset and email verification where applicable.
+Username/password accounts with secure password storage and session management.
 Protected application areas.
 User profile and settings.
 Account deletion.
@@ -570,14 +570,11 @@ Treat high scores as game data, not as a security-sensitive ranking unless the p
 
 Do not prioritise the game above core travel and recovery functionality.
 
-The current milestone 12 delivery is a standalone, browser-only game page at `/game`.
-It is intentionally not linked from the application and is reached by entering its URL directly.
-The current-flight score and game state remain in memory and are discarded when the page is left;
-there is no high-score tracking, database model, API, or account association in this scope.
-The game includes white clouds, birds, and balloons as obstacles; obstacle movement accelerates
-during a flight, and a game-over overlay marks the board after a collision.
-Persistent high scores and server-side score validation remain future work requiring explicit
-approval.
+The game is a standalone feature at `/game`, separate from trip and recovery workflows. Guest
+players can play without saving scores; signed-in users can submit scores to the public leaderboard.
+Runs are replayed by the server from deterministic obstacle seeds and steering inputs, and the
+server computes the stored score. This prevents arbitrary score submissions, but does not prevent
+automated play. The leaderboard shows usernames and best scores only.
 
 22. Database Design and Data Integrity
 
@@ -781,6 +778,8 @@ Milestone 4 — Authentication and user ownership
 
 Implement secure accounts, sessions, protected routes, and server-side ownership enforcement before exposing multi-user private data.
 
+Approved early implementation: optional username/password accounts, guest sessions, owner-scoped trips, and an explicit guest-trip transfer choice. Accounts are active immediately; email is not collected and password recovery is unavailable.
+
 Milestone 5 — Recovery-plan engine
 
 Implement deterministic, testable multi-day recovery guidance.
@@ -805,19 +804,19 @@ Milestone 10 — Preferences and cabin crew mode
 
 Implement user settings, theme selection, and the optional professional travel experience.
 
-Milestone 11 — Friends and sharing
+Milestone 11 — Friends and sharing (partially implemented early)
 
-Implement consent-based friend relationships, controlled travel sharing, and privacy enforcement.
+Consent-based friend requests and privacy controls are implemented. Travel sharing is not implemented; being friends never grants access to trip data.
 
 Milestone 12 — Easter egg game
 
-Implement the standalone, UI-only transport game. Persistent high scores are deferred.
+Implement the standalone transport game. Approved early addition: signed-in players can submit server-replayed high scores to the username-only global leaderboard; guest games remain playable without score persistence.
 
 Milestone 13 — Release readiness
 
 Conduct regression testing, accessibility review, security verification, migration checks, deployment configuration, backup and recovery planning, and documentation review.
 
-You may adjust the order when dependencies or security requirements justify it, but document the reason.
+Milestones 11 and 12 were partially brought forward at the user's request to support friend requests and the Cloud Dodger leaderboard. Broader trip sharing remains out of scope. You may adjust the order when dependencies or security requirements justify it, but document the reason.
 
 Do not implement all milestones in one pass.
 

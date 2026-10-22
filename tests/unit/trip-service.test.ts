@@ -10,7 +10,7 @@ import {
 const tripMocks = vi.hoisted(() => ({
   create: vi.fn(),
   findMany: vi.fn(),
-  findUnique: vi.fn(),
+  findFirst: vi.fn(),
   update: vi.fn(),
   delete: vi.fn(),
 }));
@@ -19,6 +19,10 @@ vi.mock("@server/db", () => ({
   prisma: {
     trip: tripMocks,
   },
+}));
+
+vi.mock("@server/authService", () => ({
+  getRequestIdentity: vi.fn().mockResolvedValue({ kind: "guest", guestId: "a".repeat(64) }),
 }));
 
 const validTrip = {
@@ -52,6 +56,8 @@ describe("trip service", () => {
         departureAt: new Date("2026-05-01T09:00:00.000Z"),
         arrivalAt: new Date("2026-05-01T10:00:00.000Z"),
         notes: null,
+        userId: null,
+        guestId: "a".repeat(64),
       },
     });
   });
@@ -108,7 +114,7 @@ describe("trip service", () => {
     await updateTrip(7, validTrip);
 
     expect(tripMocks.update).toHaveBeenCalledWith({
-      where: { id: 7 },
+      where: { id: 7, userId: null, guestId: "a".repeat(64) },
       data: expect.objectContaining({ name: "London to Paris" }),
     });
     expect(tripMocks.create).not.toHaveBeenCalled();

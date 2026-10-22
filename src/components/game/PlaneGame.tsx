@@ -2,14 +2,21 @@
 
 import Link from "next/link";
 import React from "react";
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
+import {
+  CLOUD_DODGER_COLUMNS,
+  CLOUD_DODGER_OBSTACLES,
+  CLOUD_DODGER_ROWS,
+  CLOUD_DODGER_TICK_MS,
+  CloudDodgerInput,
+  CloudDodgerObstacle,
+  createCloudDodgerRandom,
+} from "@lib/cloudDodger";
 
-const BOARD_COLUMNS = 7;
-const BOARD_ROWS = 10;
-const TICK_INTERVAL = 700;
-const OBSTACLE_TYPES = ["cloud", "bird", "balloon"] as const;
-
-type ObstacleType = (typeof OBSTACLE_TYPES)[number];
+const BOARD_COLUMNS = CLOUD_DODGER_COLUMNS;
+const BOARD_ROWS = CLOUD_DODGER_ROWS;
+const TICK_INTERVAL = CLOUD_DODGER_TICK_MS;
+type ObstacleType = CloudDodgerObstacle;
 
 type Obstacle = {
   id: number;
@@ -161,8 +168,15 @@ function getStatusMessage(status: GameState["status"]) {
   }
 }
 
-export default function PlaneGame() {
+export default function PlaneGame({ signedIn = false }: { signedIn?: boolean }) {
   const [state, dispatch] = useReducer(gameReducer, initialState);
+  const [gameError, setGameError] = useState("");
+  const [scoreMessage, setScoreMessage] = useState("");
+  const randomRef = useRef<() => number>(() => Math.random());
+  const tickRef = useRef(0);
+  const inputsRef = useRef<CloudDodgerInput[]>([]);
+  const runIdRef = useRef<string | null>(null);
+  const submittedRef = useRef(false);
   const speed = 1 + Math.floor(state.ticks / 8);
 
   useEffect(() => {
@@ -171,15 +185,41 @@ export default function PlaneGame() {
     }
 
     const interval = window.setInterval(() => {
+      const lane = Math.floor(randomRef.current() * BOARD_COLUMNS);
+      const obstacleType =
+        CLOUD_DODGER_OBSTACLES[Math.floor(randomRef.current() * CLOUD_DODGER_OBSTACLES.length)];
+      tickRef.current += 1;
       dispatch({
         type: "tick",
-        lane: Math.floor(Math.random() * BOARD_COLUMNS),
-        obstacleType: OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)],
+        lane,
+        obstacleType,
       });
     }, TICK_INTERVAL);
 
     return () => window.clearInterval(interval);
   }, [state.status]);
+
+  useEffect(() => {
+    if (state.status !== "crashed" || !signedIn || !runIdRef.current || submittedRef.current) {
+      return;
+    }
+    submittedRef.current = true;
+    setScoreMessage("Checking your score…");
+    fetch(`/api/game-runs/${runIdRef.current}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tickCount: state.ticks, inputs: inputsRef.current }),
+    })
+      .then(async (response) => {
+        const result = (await response.json()) as { score?: number; error?: string };
+        if (!response.ok) throw new Error(result.error ?? "Your score could not be verified.");
+        setScoreMessage(`Verified score: ${result.score}. It is now on the leaderboard.`);
+      })
+      .catch((error: unknown) => {
+        setGameError(error instanceof Error ? error.message : "Your score could not be verified.");
+        setScoreMessage("");
+      });
+  }, [signedIn, state.status, state.ticks]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -189,9 +229,11 @@ export default function PlaneGame() {
 
       if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") {
         event.preventDefault();
+        inputsRef.current.push({ tick: tickRef.current, direction: -1 });
         dispatch({ type: "move", direction: -1 });
       } else if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") {
         event.preventDefault();
+        inputsRef.current.push({ tick: tickRef.current, direction: 1 });
         dispatch({ type: "move", direction: 1 });
       }
     }
@@ -199,6 +241,42 @@ export default function PlaneGame() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [state.status]);
+
+  async function startFlight() {
+    setGameError("");
+    setScoreMessage("");
+    runIdRef.current = null;
+    submittedRef.current = false;
+    inputsRef.current = [];
+    tickRef.current = 0;
+
+    let seed = Math.floor(Math.random() * 2_147_483_646) + 1;
+    if (signedIn) {
+      try {
+        const response = await fetch("/api/game-runs", { method: "POST" });
+        const result = (await response.json()) as { id?: string; seed?: number; error?: string };
+        if (!response.ok || !result.id || typeof result.seed !== "number") {
+          throw new Error(result.error ?? "Unable to start a verified game run.");
+        }
+        runIdRef.current = result.id;
+        seed = result.seed;
+      } catch (error) {
+        setGameError(
+          error instanceof Error ? error.message : "Unable to start a verified game run.",
+        );
+        return;
+      }
+    }
+
+    randomRef.current = createCloudDodgerRandom(seed);
+    dispatch({ type: "start" });
+  }
+
+  function steer(direction: -1 | 1) {
+    if (state.status !== "running") return;
+    inputsRef.current.push({ tick: tickRef.current, direction });
+    dispatch({ type: "move", direction });
+  }
 
   const obstacleByCell = new Map(
     state.obstacles.map((obstacle) => [
@@ -299,13 +377,37 @@ export default function PlaneGame() {
               {state.status === "ready" || state.status === "crashed" ? (
                 <button
                   type="button"
-                  onClick={() => dispatch({ type: "start" })}
+                  onClick={() => void startFlight()}
                   className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark"
                 >
                   {state.status === "ready" ? "Start flight" : "Fly again"}
                 </button>
               ) : null}
             </div>
+            {signedIn ? (
+              <p role="status" aria-live="polite" className="min-h-5 text-xs text-accent-dark">
+                {scoreMessage}
+              </p>
+            ) : (
+              <p className="text-xs leading-5 text-slate-500">
+                Guest scores aren’t saved.{" "}
+                <Link className="font-medium text-brand-dark underline" href="/account/register">
+                  Create an account
+                </Link>{" "}
+                to submit verified scores.
+              </p>
+            )}
+            {gameError && (
+              <p role="alert" className="rounded-md bg-danger-soft p-3 text-sm text-danger-dark">
+                {gameError}
+              </p>
+            )}
+            <Link
+              href="/community"
+              className="inline-flex text-sm font-medium text-brand-dark underline-offset-4 hover:underline"
+            >
+              View leaderboard
+            </Link>
 
             <div className="space-y-3 border-t border-slate-200 pt-4">
               <p className="text-xs leading-5 text-slate-500">
@@ -317,7 +419,7 @@ export default function PlaneGame() {
                   type="button"
                   aria-label="Steer left"
                   disabled={state.status !== "running"}
-                  onClick={() => dispatch({ type: "move", direction: -1 })}
+                  onClick={() => steer(-1)}
                   className="flex-1 rounded-md border border-slate-300 px-4 py-2 text-lg text-surface-strong hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   &larr;
@@ -326,7 +428,7 @@ export default function PlaneGame() {
                   type="button"
                   aria-label="Steer right"
                   disabled={state.status !== "running"}
-                  onClick={() => dispatch({ type: "move", direction: 1 })}
+                  onClick={() => steer(1)}
                   className="flex-1 rounded-md border border-slate-300 px-4 py-2 text-lg text-surface-strong hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   &rarr;

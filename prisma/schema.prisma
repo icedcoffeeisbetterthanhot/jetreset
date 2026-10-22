@@ -17,6 +17,9 @@ model AppHealthCheck {
 
 model Trip {
   id                  Int             @id @default(autoincrement())
+  userId              Int?
+  guestId             String?         @db.VarChar(64)
+  user                User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
   name                String          @db.VarChar(200)
   origin              String          @db.VarChar(200)
   destination         String          @db.VarChar(200)
@@ -29,6 +32,93 @@ model Trip {
   updatedAt           DateTime        @updatedAt
   flightSegments      FlightSegment[]
   recoveryPlan        RecoveryPlan?
+
+  @@index([userId, departureAt])
+  @@index([guestId, departureAt])
+}
+
+model User {
+  id                     Int             @id @default(autoincrement())
+  username               String          @unique @db.VarChar(24)
+  passwordHash           String          @db.VarChar(255)
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  sessions               UserSession[]
+  trips                  Trip[]
+  requestedFriends       FriendRequest[] @relation("FriendRequester")
+  receivedFriendRequests FriendRequest[] @relation("FriendRecipient")
+  friendEdgesA           FriendRequest[] @relation("FriendUserA")
+  friendEdgesB           FriendRequest[] @relation("FriendUserB")
+  gameRuns               GameRun[]
+}
+
+model LegacyGuestClaim {
+  id      Int    @id @default(1)
+  guestId String @unique @db.VarChar(64)
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique @db.VarChar(64)
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId, expiresAt])
+}
+
+model AuthThrottle {
+  key             String   @id @db.VarChar(64)
+  failures        Int      @default(0)
+  windowStartedAt DateTime
+  updatedAt       DateTime @updatedAt
+}
+
+enum FriendRequestStatus {
+  pending
+  accepted
+  declined
+}
+
+model FriendRequest {
+  id          Int                 @id @default(autoincrement())
+  userAId     Int
+  userBId     Int
+  requesterId Int
+  recipientId Int
+  status      FriendRequestStatus @default(pending)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  userA       User                @relation("FriendUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB       User                @relation("FriendUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  requester   User                @relation("FriendRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  recipient   User                @relation("FriendRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+  @@index([recipientId, status])
+  @@index([requesterId, status])
+}
+
+enum GameRunStatus {
+  active
+  completed
+  rejected
+}
+
+model GameRun {
+  id          String        @id @default(cuid())
+  userId      Int
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  seed        Int
+  status      GameRunStatus @default(active)
+  score       Int?
+  tickCount   Int?
+  inputLog    Json?
+  startedAt   DateTime      @default(now())
+  completedAt DateTime?
+
+  @@index([userId, status, score])
 }
 
 model FlightSegment {

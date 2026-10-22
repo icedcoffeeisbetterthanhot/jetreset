@@ -27,6 +27,10 @@ This document describes how to set up the project, run checks, and collaborate v
    The `.env` file contains local credentials and is ignored by Git. Never commit
    it or paste its contents into issue reports.
 
+   Optional accounts use a username and password; no email service or email
+   configuration is required. Password recovery is unavailable, so users
+   should store their passwords safely. Use HTTPS in production.
+
 4. **Start PostgreSQL**
 
    Docker is optional. If Docker Compose is available, start the included
@@ -54,12 +58,14 @@ This document describes how to set up the project, run checks, and collaborate v
    migration workflow needs a database role allowed to create databases for its
    temporary shadow database. Do not use `--name` just to apply existing
    migrations.
+   The account migration removes stored email addresses, email verification,
+   and password-reset tokens. Back up the database before applying it.
 
    Refresh the bundled airport directory when needed with
    `npm run airports:update`. This downloads the scheduled-service airport
    dataset from OurAirports and derives airport time zones from coordinates.
-   Apply the latest recovery-plan schema along with the other committed
-   migrations using `npx prisma migrate deploy`.
+   Apply all committed migrations, including account ownership, friends, and
+   verified game scores, using `npx prisma migrate deploy`.
 
 6. **Start the application**
 
@@ -139,12 +145,11 @@ To support multiple developers working in parallel:
 ## Feature Roadmap and Data Safety
 
 Trip management, flight planning, recovery plans, and activity progress are
-present in the current codebase, but they have no authentication or
-user-ownership boundary. Keep this application on a trusted local development
-environment until authentication and authorization have been implemented and
-verified. Recovery suggestions are general educational guidance rather than
-medical advice.
+scoped to the current browser guest session or signed-in account. Keep
+production deployment gated on HTTPS, backups, and operational review.
+Recovery suggestions are general educational guidance
+rather than medical advice.
 
 The remaining product roadmap is documented in `README.md`. Implement and
-verify one approved milestone at a time. Do not expose private trip data to
-other users before server-side ownership checks are in place.
+verify one approved milestone at a time. Friend relationships do not grant
+access to trip data.

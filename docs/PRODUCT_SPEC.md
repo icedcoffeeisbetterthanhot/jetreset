@@ -27,10 +27,17 @@ features:
   guidance.
 - A trip-specific dashboard with trip stage, next target bedtime, flexible
   wake/bedtime preferences, and persisted activity completion.
+- Optional username/password accounts with persistent sessions and server-side
+  account ownership for trip data. Email is not collected; password recovery is
+  unavailable.
+- Browser-scoped guest trips with an explicit option to transfer them into an
+  account after sign-in.
+- Consent-based friend requests and a global Cloud Dodger leaderboard showing
+  only user-chosen usernames and server-replayed high scores.
 
-Authentication and ownership enforcement are not yet available. Trip records
-are not protected multi-user data; use this implementation only for trusted
-local development until access control is implemented.
+Guest data is scoped to its browser session and signed-in trip data to its
+account. Production use still requires HTTPS, database backups, and operational
+controls.
 
 ## Landing Page Requirements (Implemented)
 
@@ -45,7 +52,8 @@ local development until access control is implemented.
 
 - Reminders and calendar integrations.
 - Flight-status integrations.
-- User accounts, preferences, and privacy controls.
+- Broader user preferences and privacy controls.
+- Travel sharing with friends (friend relationships do not grant trip access).
 - Travel statistics and reporting.
 
 Implement the approved roadmap in independently verified milestones. Features
@@ -54,11 +62,9 @@ services are configured and verified.
 
 ## Current Limitations
 
-- No authentication or account management.
-- No server-side trip ownership or authorization.
+- No trip sharing between friends.
 - No live flight status, estimates, or actual-time updates.
 - Recovery guidance is general and not a clinical circadian model or medical
   advice; it does not use personal health data, verified flight updates, or
   live daylight information.
-- No reminders or external notification delivery.
-- No reminders, exports, maps, social features, or offline capabilities.
+- No reminders, exports, maps, or offline capabilities.

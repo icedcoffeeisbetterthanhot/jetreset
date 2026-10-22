@@ -4,17 +4,21 @@ import { TripInputError } from "@server/tripService";
 const mocks = vi.hoisted(() => ({
   flightCreate: vi.fn(),
   flightDeleteMany: vi.fn(),
-  tripFindUnique: vi.fn(),
+  tripFindFirst: vi.fn(),
 }));
 
 vi.mock("@server/db", () => ({
   prisma: {
-    trip: { findUnique: mocks.tripFindUnique },
+    trip: { findFirst: mocks.tripFindFirst },
     flightSegment: {
       create: mocks.flightCreate,
       deleteMany: mocks.flightDeleteMany,
     },
   },
+}));
+
+vi.mock("@server/authService", () => ({
+  getRequestIdentity: vi.fn().mockResolvedValue({ kind: "guest", guestId: "a".repeat(64) }),
 }));
 
 const input = {
@@ -29,6 +33,7 @@ const input = {
 describe("flight service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.tripFindFirst.mockResolvedValue({ id: 4 });
   });
 
   it("stores airport time zones and converts each scheduled local time", async () => {

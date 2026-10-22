@@ -49,6 +49,10 @@ export default function HomePage() {
             View my trips
           </Link>
         </div>
+        <p className="mt-4 text-sm text-slate-600">
+          No account needed to plan trips. Sign in when you want to add friends and save game
+          scores.
+        </p>
       </section>
 
       <section aria-label="What JetReset helps you do" className="mt-14 md:mt-16">

@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@server/db";
 import { z } from "zod";
 import { TripDateTimeSchema, toZonedInstant } from "@lib/timezone";
+import { getRequestIdentity } from "@server/authService";
 
 const tripBaseSchema = z.object({
   name: z.string().trim().min(1, "Trip name is required").max(200),
@@ -16,6 +17,13 @@ const tripBaseSchema = z.object({
 
 export const createTripSchema = tripBaseSchema;
 export type CreateTripInput = z.infer<typeof createTripSchema>;
+
+export async function getTripOwnerWhere() {
+  const identity = await getRequestIdentity();
+  return identity.kind === "user"
+    ? { userId: identity.userId, guestId: null }
+    : { userId: null, guestId: identity.guestId };
+}
 
 export class TripInputError extends Error {
   constructor(message: string) {
@@ -99,28 +107,33 @@ function isRecordNotFound(error: unknown): boolean {
 }
 
 export async function createTrip(input: unknown) {
+  const owner = await getTripOwnerWhere();
   return prisma.trip.create({
-    data: getTripData(input),
+    data: { ...getTripData(input), ...owner },
   });
 }
 
 export async function listTrips() {
+  const owner = await getTripOwnerWhere();
   return prisma.trip.findMany({
+    where: owner,
     orderBy: { departureAt: "asc" },
   });
 }
 
 export async function getTripById(id: number) {
   validateTripId(id);
-  return prisma.trip.findUnique({ where: { id } });
+  const owner = await getTripOwnerWhere();
+  return prisma.trip.findFirst({ where: { id, ...owner } });
 }
 
 export async function updateTrip(id: number, input: unknown) {
   validateTripId(id);
+  const owner = await getTripOwnerWhere();
 
   try {
     return await prisma.trip.update({
-      where: { id },
+      where: { id, ...owner },
       data: getTripData(input),
     });
   } catch (error) {
@@ -133,9 +146,10 @@ export async function updateTrip(id: number, input: unknown) {
 
 export async function deleteTrip(id: number) {
   validateTripId(id);
+  const owner = await getTripOwnerWhere();
 
   try {
-    await prisma.trip.delete({ where: { id } });
+    await prisma.trip.delete({ where: { id, ...owner } });
   } catch (error) {
     if (isRecordNotFound(error)) {
       throw new TripNotFoundError();

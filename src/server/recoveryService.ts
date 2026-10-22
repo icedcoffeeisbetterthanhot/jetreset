@@ -5,6 +5,7 @@ import type { RecoveryPlanDraft } from "@lib/recoveryPlan";
 import { prisma } from "@server/db";
 import { TripInputError, TripNotFoundError } from "@server/tripService";
 import { RecoveryActivityNotFoundError } from "@server/recoveryErrors";
+import { getTripOwnerWhere } from "@server/tripService";
 
 const recoveryPreferencesSchema = z.object({
   targetBedtime: z
@@ -71,8 +72,9 @@ function activityRows(draft: RecoveryPlanDraft) {
 
 export async function getRecoveryPlan(tripId: number) {
   validateId(tripId, "Trip ID");
+  const owner = await getTripOwnerWhere();
   const trip = await prisma.trip.findUnique({
-    where: { id: tripId },
+    where: { id: tripId, ...owner },
     include: {
       recoveryPlan: { include: { activities: { orderBy: { scheduledAt: "asc" } } } },
       flightSegments: { select: { id: true, updatedAt: true } },
@@ -90,6 +92,7 @@ export async function getRecoveryPlan(tripId: number) {
 
 export async function generateOrRefreshRecoveryPlan(tripId: number, input: unknown) {
   validateId(tripId, "Trip ID");
+  const owner = await getTripOwnerWhere();
   const parsedPreferences = recoveryPreferencesSchema.safeParse(input ?? {});
   if (!parsedPreferences.success) {
     throw new TripInputError(
@@ -98,7 +101,7 @@ export async function generateOrRefreshRecoveryPlan(tripId: number, input: unkno
   }
 
   const trip = await prisma.trip.findUnique({
-    where: { id: tripId },
+    where: { id: tripId, ...owner },
     include: { flightSegments: { orderBy: { scheduledDepartureAt: "asc" } } },
   });
   if (!trip) throw new TripNotFoundError();
@@ -155,9 +158,10 @@ export async function setRecoveryActivityCompleted(
 ) {
   validateId(tripId, "Trip ID");
   validateId(activityId, "Activity ID");
+  const owner = await getTripOwnerWhere();
 
   const result = await prisma.recoveryActivity.updateMany({
-    where: { id: activityId, plan: { tripId } },
+    where: { id: activityId, plan: { tripId, trip: owner } },
     data: { completedAt: completed ? new Date() : null },
   });
   if (result.count === 0) throw new RecoveryActivityNotFoundError();

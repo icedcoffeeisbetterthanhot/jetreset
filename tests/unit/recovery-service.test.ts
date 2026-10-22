@@ -30,6 +30,10 @@ vi.mock("@server/db", () => ({
   },
 }));
 
+vi.mock("@server/authService", () => ({
+  getRequestIdentity: vi.fn().mockResolvedValue({ kind: "guest", guestId: "a".repeat(64) }),
+}));
+
 const updatedAt = new Date("2026-04-20T12:00:00.000Z");
 const sourceItineraryHash = createHash("sha256").update(updatedAt.toISOString()).digest("hex");
 const trip = {
@@ -167,7 +171,13 @@ describe("recovery service", () => {
     await setRecoveryActivityCompleted(5, 11, true);
 
     expect(mocks.activityUpdateMany).toHaveBeenCalledWith({
-      where: { id: 11, plan: { tripId: 5 } },
+      where: {
+        id: 11,
+        plan: {
+          tripId: 5,
+          trip: { userId: null, guestId: "a".repeat(64) },
+        },
+      },
       data: { completedAt: expect.any(Date) },
     });
   });

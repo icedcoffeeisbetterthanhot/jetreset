@@ -3,7 +3,8 @@
 ## Overview
 
 JetReset uses a **modular monolith** approach. The repository contains the
-application foundation, trip management, and local flight-planning features:
+application foundation, trip management, flight planning, recovery features,
+optional account ownership, community features, and the Cloud Dodger game:
 
 - Next.js App Router for routing and server-side rendering.
 - Strict TypeScript for safety and maintainability.
@@ -28,6 +29,11 @@ src/
           recovery/
             route.ts
             activities/[activityId]/ # Persist activity completion
+      auth/                           # Username/password registration and sessions
+      friends/                        # Consent-based friend requests
+      game-runs/                      # Server-validated game runs
+      leaderboard/                    # Public username-only high scores
+    account/    # Signed-in account information and settings
     trips/      # Trip list, details, create, and edit pages
     layout.tsx
     page.tsx
@@ -42,12 +48,15 @@ src/
     recoveryPlan.ts
     timezone.ts
   server/       # Server-only services and data-access code (Prisma client)
+    authService.ts
+    communityService.ts
     airportService.ts
     db.ts
     flightService.ts
     recoveryErrors.ts
     recoveryService.ts
     tripService.ts
+    gameService.ts
   data/
     airports.json # Bundled airport directory
 scripts/
@@ -75,6 +84,8 @@ docs/
 - **Trip business logic**: `src/server/tripService.ts`
 - **Flight-segment business logic**: `src/server/flightService.ts`
 - **Airport search**: `src/server/airportService.ts`
+- **Account, identity, and community logic**: `src/server/authService.ts` and
+  `src/server/communityService.ts`
 - **Time-zone utilities**: `src/lib/timezone.ts`
 - **Itinerary calculations**: `src/lib/itinerary.ts`
 - **Configuration**:
@@ -87,6 +98,41 @@ docs/
 - Database access (`PrismaClient`) is defined in `src/server/db.ts`.
 - Client components must not import `src/server/*`.
 - Environment validation (`getServerEnv`) is intended for server-side modules only.
+
+## Accounts, Guest Sessions, and Ownership
+
+Username/password credentials are normalized and validated server-side.
+Passwords use Node's scrypt KDF with unique random salts. Persistent session
+cookies are HTTP-only, use SameSite=Lax, and carry opaque random tokens whose
+hashes are stored in `UserSession`. Login attempts are throttled per normalized
+username. Email is not collected; password recovery is unavailable, so users
+must keep their passwords safe.
+Signed-in users can view their username and sign-in method in account settings;
+guest users are redirected to sign-in when opening that page.
+
+Middleware assigns an opaque random guest identifier in an HTTP-only cookie.
+Every trip query and mutation is constrained to exactly one owner: either the
+signed-in user ID or the current guest ID. Flight segments and recovery records
+are reachable only through an owned trip. On sign-in, the user is offered an
+explicit choice to transfer the current guest session's trips; declining keeps
+those records in the guest session.
+
+For existing local databases, the migration marks previously unowned trips as
+legacy guest data. In development only, the first guest session claims these
+records once; production never auto-assigns legacy records to a visitor.
+
+## Friends and Cloud Dodger Scores
+
+Friend requests are initiated by exact username and require recipient
+acceptance. Friend relationships do not grant trip access. The public
+leaderboard exposes only usernames and each account's best completed score.
+Guest play remains available but is not persisted.
+
+Authenticated game runs receive a server-generated seed. The server replays
+the submitted steering log, checks the deterministic game simulation and
+minimum elapsed time, and stores only the resulting server-calculated score.
+This prevents arbitrary score values and replay mismatches; it is not a
+complete bot or automation defense.
 
 ## Airport Data and Flight Planning
 
@@ -136,18 +182,22 @@ day, and calculates progress only from persisted activity completion.
 The architecture is compatible with future modules such as:
 
 - Reminders and calendar integrations
-- User accounts and preferences
+- Broader account preferences
 - Travel statistics and reporting
 
 The remaining roadmap is documented in `README.md`. Keep new modules behind
 the existing server-side service boundary and deliver them one milestone at a
 time.
 
-## Current Data-Access Limitation
+## Deployment Considerations
 
-Trip routes currently have no authentication or ownership checks. They are
-appropriate only for trusted local development; do not expose this application
-or its trip data to untrusted users until server-side authorization is added.
+Trip data is scoped to a guest session or signed-in account. Production
+deployment requires HTTPS, database backups, and operational review. Existing
+trips are marked with an isolated legacy guest identifier during migration.
+Only development can claim those records for its first guest session;
+production does not expose them to visitors. The account migration removes
+stored email addresses and email tokens but preserves usernames and password
+hashes.
 
 ## Design Decisions (Key Points)
 
