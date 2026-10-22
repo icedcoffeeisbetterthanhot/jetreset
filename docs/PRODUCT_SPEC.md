@@ -27,7 +27,7 @@ features:
   guidance.
 - A trip-specific dashboard with trip stage, next target bedtime, flexible
   wake/bedtime preferences, and persisted activity completion.
-- A standalone Daily dashboard (`/dashboard`, linked from the primary
+- A standalone Daily Dashboard (`/dashboard`, linked from the primary
   navigation and each trip) showing, for one selected or automatically chosen
   trip: the recovery stage and day, next target sleep and wake times, the next
   activity, today's progress, and a day-by-day plan calendar. Each day is an
@@ -35,8 +35,8 @@ features:
   caffeine guidance with category icons, exact local times, a current-time
   marker, and planned and completed activities clearly distinguished. Empty states cover no trips,
   no plan, pre-departure, in-transit, and a finished plan period.
-- A Flight status page (`/flight-status`, linked from the primary navigation,
-  each trip, and the daily dashboard) with on-demand checks per trip using Aviationstack (when
+- A Flight Status page (`/flight-status`, linked from the primary navigation,
+  each trip, and the Daily Dashboard) with on-demand checks per trip using Aviationstack (when
   `AVIATIONSTACK_API_KEY` is configured), showing your saved schedule, the
   provider schedule, and estimated and actual times separately, with delays,
   early times, cancellations, and diversions highlighted. Verified changes can

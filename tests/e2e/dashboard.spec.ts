@@ -4,12 +4,12 @@ test("daily dashboard is reachable from primary navigation", async ({ page }) =>
   await page.goto("/");
   await page
     .getByRole("navigation", { name: "Primary" })
-    .getByRole("link", { name: "Daily dashboard" })
+    .getByRole("link", { name: "Daily Dashboard" })
     .click();
 
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page).toHaveTitle(/Daily dashboard/i);
-  await expect(page.getByRole("heading", { level: 1, name: "Daily dashboard" })).toBeVisible();
+  await expect(page).toHaveTitle(/Daily Dashboard/i);
+  await expect(page.getByRole("heading", { level: 1, name: "Daily Dashboard" })).toBeVisible();
 });
 
 test("daily dashboard returns not found for an invalid trip", async ({ page }) => {

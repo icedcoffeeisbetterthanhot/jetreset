@@ -63,7 +63,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <div className="space-y-6">
           <TripSummaryCard trip={selectedTrip}>
             <Link href={`/flight-status?trip=${selectedTrip.id}`} className={secondaryLinkClass}>
-              Flight status
+              Flight Status
             </Link>
             <Link href={`/trips/${selectedTrip.id}`} className={secondaryLinkClass}>
               View trip and plan settings

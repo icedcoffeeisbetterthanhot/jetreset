@@ -146,7 +146,7 @@ export function DailyDashboard({
           className="rounded-md border border-danger-dark bg-danger-soft px-4 py-3 text-sm text-danger-dark"
           role="alert"
         >
-          <p className="font-medium">Flight status needs your attention</p>
+          <p className="font-medium">Flight Status needs your attention</p>
           <ul className="mt-1 list-inside list-disc">
             {flightStatusAlerts.map((alert) => (
               <li key={alert}>{alert}</li>

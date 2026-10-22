@@ -14,7 +14,7 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Flight status – JetReset",
+  title: "Flight Status – JetReset",
 };
 
 type FlightStatusPageProps = {
@@ -39,7 +39,7 @@ export default async function FlightStatusPage({ searchParams }: FlightStatusPag
       <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight text-surface-strong">
-            Flight status
+            Flight Status
           </h1>
           <p className="max-w-xl text-sm text-slate-600">
             Your saved schedule alongside the provider&apos;s scheduled, estimated, and actual times
@@ -67,7 +67,7 @@ export default async function FlightStatusPage({ searchParams }: FlightStatusPag
         <div className="max-w-4xl space-y-6">
           <TripSummaryCard trip={selectedTrip}>
             <Link href={`/dashboard?trip=${selectedTrip.id}`} className={secondaryLinkClass}>
-              Daily dashboard
+              Daily Dashboard
             </Link>
             <Link href={`/trips/${selectedTrip.id}`} className={secondaryLinkClass}>
               View trip and flights

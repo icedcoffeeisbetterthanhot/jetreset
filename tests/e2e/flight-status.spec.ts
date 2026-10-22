@@ -4,12 +4,12 @@ test("flight status page is reachable from primary navigation", async ({ page })
   await page.goto("/");
   await page
     .getByRole("navigation", { name: "Primary" })
-    .getByRole("link", { name: "Flight status" })
+    .getByRole("link", { name: "Flight Status" })
     .click();
 
   await expect(page).toHaveURL(/\/flight-status$/);
-  await expect(page).toHaveTitle(/Flight status/i);
-  await expect(page.getByRole("heading", { level: 1, name: "Flight status" })).toBeVisible();
+  await expect(page).toHaveTitle(/Flight Status/i);
+  await expect(page.getByRole("heading", { level: 1, name: "Flight Status" })).toBeVisible();
 });
 
 test("flight status page returns not found for an invalid trip", async ({ page }) => {
