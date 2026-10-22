@@ -4,14 +4,22 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { RecoveryActivityType } from "@lib/recoveryPlan";
 import {
+  formatActivityTimeRange,
   getDailyRecoveryState,
+  planLacksEndTimes,
   getDefaultCalendarDay,
   getPlanCalendarDays,
   offsetDescription,
   type RecoveryActivityView,
+  type PersonalActivityView,
   type RecoveryPlanView,
 } from "@lib/recoveryDashboard";
 import { updateActivityCompletion } from "@components/trips/recoveryApi";
+import {
+  deletePersonalActivity,
+  savePersonalActivity,
+  type PersonalActivityInput,
+} from "@components/dashboard/personalActivityApi";
 import { ActivityIcon } from "@components/dashboard/ActivityIcon";
 import { CATEGORY_STYLES, RecoveryCalendar } from "@components/dashboard/RecoveryCalendar";
 
@@ -28,6 +36,8 @@ interface DailyDashboardProps {
   flightStatusAlerts?: string[];
   /** Which plan this is, e.g. "Back-home recovery plan". */
   planLabel?: string;
+  /** The user's own activities for this trip. */
+  personalActivities?: PersonalActivityView[];
   /** Server render time, so the first client render matches the server output. */
   initialNow: string;
 }
@@ -45,10 +55,6 @@ function formatDateTime(value: string, timeZone: string): string {
   }).format(new Date(value));
 }
 
-function formatClock(value: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-GB", { timeStyle: "short", timeZone }).format(new Date(value));
-}
-
 export function DailyDashboard({
   tripId,
   departureAt,
@@ -59,12 +65,28 @@ export function DailyDashboard({
   flightStatusChangePending = false,
   flightStatusAlerts = [],
   planLabel,
+  personalActivities: initialPersonalActivities = [],
   initialNow,
 }: DailyDashboardProps) {
   const [plan, setPlan] = useState(initialPlan);
   const [now, setNow] = useState(() => new Date(initialNow));
   const [updatingActivityId, setUpdatingActivityId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [personalActivities, setPersonalActivities] = useState(initialPersonalActivities);
+
+  async function handleSavePersonal(input: PersonalActivityInput, activityId?: number) {
+    const saved = await savePersonalActivity(tripId, input, activityId);
+    setPersonalActivities((current) =>
+      activityId
+        ? current.map((activity) => (activity.id === saved.id ? saved : activity))
+        : [...current, saved],
+    );
+  }
+
+  async function handleDeletePersonal(activityId: number) {
+    await deletePersonalActivity(tripId, activityId);
+    setPersonalActivities((current) => current.filter((activity) => activity.id !== activityId));
+  }
 
   useEffect(() => {
     setNow(new Date());
@@ -184,6 +206,23 @@ export function DailyDashboard({
         </p>
       )}
 
+      {planLacksEndTimes(plan) && (
+        <p
+          className="rounded-md border border-brand/30 bg-brand-soft px-4 py-3 text-sm text-brand-dark"
+          role="status"
+        >
+          This plan was created before activity end times and optional naps were added, so only
+          start times are shown.{" "}
+          <Link
+            href={`/trips/${tripId}`}
+            className="font-medium underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-brand"
+          >
+            Regenerate the plan on the trip page
+          </Link>{" "}
+          to see start and end times for every activity.
+        </p>
+      )}
+
       {plan.adjustmentNote && (
         <p className="rounded-md border border-brand/30 bg-brand-soft px-4 py-3 text-sm text-brand-dark">
           {plan.adjustmentNote}
@@ -233,7 +272,7 @@ export function DailyDashboard({
             label="Next activity today"
             value={
               state.nextActivity
-                ? `${formatClock(state.nextActivity.scheduledAt, state.nextActivity.timeZone)} · ${state.nextActivity.title}`
+                ? `${formatActivityTimeRange(state.nextActivity)} · ${state.nextActivity.title}`
                 : "Nothing else planned"
             }
           />
@@ -289,6 +328,9 @@ export function DailyDashboard({
           now={now}
           updatingActivityId={updatingActivityId}
           onToggle={(activity) => void handleActivityToggle(activity)}
+          personalActivities={personalActivities}
+          onSavePersonal={handleSavePersonal}
+          onDeletePersonal={handleDeletePersonal}
         />
       )}
 

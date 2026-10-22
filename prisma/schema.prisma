@@ -27,11 +27,31 @@ model Trip {
   destinationTimeZone String          @db.VarChar(100)
   departureAt         DateTime
   arrivalAt           DateTime
-  notes               String?         @db.VarChar(2000)
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  notes               String?            @db.VarChar(2000)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
   flightSegments      FlightSegment[]
   recoveryPlans       RecoveryPlan[]
+  personalActivities  PersonalActivity[]
+}
+
+/// A user's own planned activity (e.g. a meeting) shown on the plan calendar.
+/// Linked to the trip, not a recovery plan, so regenerating or adjusting a plan
+/// never removes it.
+model PersonalActivity {
+  id        Int      @id @default(autoincrement())
+  tripId    Int
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  title     String   @db.VarChar(120)
+  notes     String?  @db.VarChar(500)
+  startsAt  DateTime
+  endsAt    DateTime
+  /// IANA zone the activity was entered in; times display in this zone.
+  timeZone  String   @db.VarChar(100)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tripId, startsAt])
 
   @@index([userId, departureAt])
   @@index([guestId, departureAt])
@@ -251,6 +271,8 @@ model RecoveryActivity {
   title       String               @db.VarChar(120)
   guidance    String               @db.VarChar(1000)
   scheduledAt DateTime
+  /// End of the activity window; null for activities created before end times were stored.
+  endsAt      DateTime?
   timeZone    String               @db.VarChar(100)
   completedAt DateTime?
   createdAt   DateTime             @default(now())

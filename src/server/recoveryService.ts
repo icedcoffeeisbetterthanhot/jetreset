@@ -127,6 +127,7 @@ function activityRows(draft: RecoveryPlanDraft) {
     title: activity.title,
     guidance: activity.guidance,
     scheduledAt: activity.scheduledAt,
+    endsAt: activity.endsAt,
     timeZone: activity.timeZone,
   }));
 }

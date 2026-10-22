@@ -1,9 +1,12 @@
 import {
+  findPlanOverlaps,
+  formatActivityTimeRange,
   getCalendarHourSlots,
   getDailyRecoveryState,
   getDefaultCalendarDay,
   getLocalHour,
   getPlanCalendarDays,
+  personalActivitiesForDay,
   selectDashboardTrip,
   toRecoveryPlanView,
   type RecoveryActivityView,
@@ -219,18 +222,22 @@ describe("toRecoveryPlanView", () => {
         {
           ...plan.activities[1],
           scheduledAt: new Date("2026-06-01T16:30:00.000Z"),
+          endsAt: new Date("2026-06-01T17:15:00.000Z"),
           completedAt: new Date("2026-06-01T16:40:00.000Z"),
         },
         {
           ...plan.activities[2],
           scheduledAt: new Date("2026-06-01T22:30:00.000Z"),
+          endsAt: null,
           completedAt: null,
         },
       ],
     });
 
     expect(view.sourceTripUpdatedAt).toBe("2026-05-30T12:00:00.000Z");
+    expect(view.activities[1].endsAt).toBeNull();
     expect(view.activities[0]).toMatchObject({
+      endsAt: "2026-06-01T17:15:00.000Z",
       id: 2,
       scheduledAt: "2026-06-01T16:30:00.000Z",
       completedAt: "2026-06-01T16:40:00.000Z",
@@ -275,5 +282,81 @@ describe("calendar helpers", () => {
   it("reads local hours across daylight-saving and date boundaries", () => {
     expect(getLocalHour(new Date("2026-06-02T02:00:00.000Z"), timeZone)).toBe(22);
     expect(getLocalHour(new Date("2026-01-02T02:00:00.000Z"), timeZone)).toBe(21);
+  });
+});
+
+describe("formatActivityTimeRange", () => {
+  it("shows local start and end, marking overnight ends", () => {
+    expect(
+      formatActivityTimeRange({
+        scheduledAt: "2026-06-01T17:30:00.000Z",
+        endsAt: "2026-06-01T18:00:00.000Z",
+        timeZone,
+      }),
+    ).toBe("13:30–14:00");
+    expect(
+      formatActivityTimeRange({
+        scheduledAt: "2026-06-02T02:00:00.000Z",
+        endsAt: "2026-06-02T11:00:00.000Z",
+        timeZone,
+      }),
+    ).toBe("22:00–07:00 next day");
+  });
+
+  it("falls back to the start time for activities without a stored end", () => {
+    expect(
+      formatActivityTimeRange({ scheduledAt: "2026-06-01T16:30:00.000Z", endsAt: null, timeZone }),
+    ).toBe("12:30");
+  });
+});
+
+describe("personal activities on the calendar", () => {
+  const meeting = {
+    id: 1,
+    title: "Client meeting",
+    notes: null,
+    // 1 June, 12:00–14:00 in New York.
+    startsAt: "2026-06-01T16:00:00.000Z",
+    endsAt: "2026-06-01T18:00:00.000Z",
+    timeZone,
+  };
+  const planWithEnds: RecoveryPlanView = {
+    ...plan,
+    activities: plan.activities.map((item) => ({
+      ...item,
+      endsAt: new Date(new Date(item.scheduledAt).getTime() + 30 * 60_000).toISOString(),
+    })),
+  };
+
+  it("places activities on the calendar day they start, in that day's time zone", () => {
+    const [, dayOne, dayTwo] = getPlanCalendarDays(planWithEnds);
+
+    expect(personalActivitiesForDay(dayOne, [meeting]).map((item) => item.id)).toEqual([1]);
+    expect(personalActivitiesForDay(dayTwo, [meeting])).toEqual([]);
+  });
+
+  it("extends hour slots to cover personal activities", () => {
+    const [, dayOne] = getPlanCalendarDays(planWithEnds);
+    const early = { ...meeting, id: 2, startsAt: "2026-06-01T10:00:00.000Z" };
+
+    const slots = getCalendarHourSlots(dayOne, [meeting, early]);
+
+    expect(slots[0]).toMatchObject({ hour: 6, activities: [] });
+    expect(slots[0].personal.map((item) => item.id)).toEqual([2]);
+    expect(slots.find((slot) => slot.hour === 12)?.personal.map((item) => item.id)).toEqual([1]);
+  });
+
+  it("reports plan activities that overlap, ignoring caffeine windows and missing end times", () => {
+    const lunch = planWithEnds.activities.find((item) => item.id === 2)!;
+    const caffeine = { ...lunch, id: 90, type: "caffeine" as const, title: "Caffeine window" };
+    const noEnd = { ...lunch, id: 91, endsAt: null };
+
+    expect(findPlanOverlaps(meeting, [lunch, caffeine, noEnd]).map((item) => item.id)).toEqual([2]);
+    expect(
+      findPlanOverlaps(
+        { ...meeting, startsAt: lunch.endsAt!, endsAt: "2026-06-01T18:00:00.000Z" },
+        [lunch],
+      ),
+    ).toEqual([]);
   });
 });

@@ -8,6 +8,8 @@ export interface RecoveryActivityView {
   title: string;
   guidance: string;
   scheduledAt: string;
+  /** End of the activity window; absent for activities created before end times existed. */
+  endsAt?: string | null;
   timeZone: string;
   completedAt: string | null;
 }
@@ -43,8 +45,9 @@ export interface StoredRecoveryPlan extends Omit<
   routeArrivalAt?: Date | null;
   adjustedAt?: Date | null;
   activities: Array<
-    Omit<RecoveryActivityView, "scheduledAt" | "completedAt"> & {
+    Omit<RecoveryActivityView, "scheduledAt" | "endsAt" | "completedAt"> & {
       scheduledAt: Date;
+      endsAt?: Date | null;
       completedAt: Date | null;
     }
   >;
@@ -95,6 +98,70 @@ export function calendarDaysBetween(start: string, end: string): number {
   const startDate = Date.UTC(startYear, startMonth - 1, startDay);
   const endDate = Date.UTC(endYear, endMonth - 1, endDay);
   return Math.round((endDate - startDate) / 86_400_000);
+}
+
+function formatLocalClock(value: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone,
+  }).format(new Date(value));
+}
+
+export interface ActivityTimes {
+  /** Local start, e.g. "12:30". */
+  start: string;
+  /** Local end, or null for activities created before end times were stored. */
+  end: string | null;
+  /** Local days between start and end (1 for overnight sleep). */
+  endDayOffset: number;
+  durationMinutes: number | null;
+}
+
+export function getActivityTimes(
+  activity: Pick<RecoveryActivityView, "scheduledAt" | "endsAt" | "timeZone">,
+): ActivityTimes {
+  const start = formatLocalClock(activity.scheduledAt, activity.timeZone);
+  if (!activity.endsAt) return { start, end: null, endDayOffset: 0, durationMinutes: null };
+  return {
+    start,
+    end: formatLocalClock(activity.endsAt, activity.timeZone),
+    endDayOffset: calendarDaysBetween(
+      getLocalDate(new Date(activity.scheduledAt), activity.timeZone),
+      getLocalDate(new Date(activity.endsAt), activity.timeZone),
+    ),
+    durationMinutes: Math.round(
+      (new Date(activity.endsAt).getTime() - new Date(activity.scheduledAt).getTime()) / 60_000,
+    ),
+  };
+}
+
+/** Short duration label, e.g. "10 min", "1 h 30 min", "9 h". */
+export function formatActivityDuration(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  if (!hours) return `${remainder} min`;
+  return remainder ? `${hours} h ${remainder} min` : `${hours} h`;
+}
+
+/**
+ * Formats an activity's local start and end, e.g. "13:30–14:00" or
+ * "22:00–07:00 next day". Activities without a stored end show the start only.
+ */
+export function formatActivityTimeRange(
+  activity: Pick<RecoveryActivityView, "scheduledAt" | "endsAt" | "timeZone">,
+): string {
+  const { start, end, endDayOffset } = getActivityTimes(activity);
+  if (!end) return start;
+  const suffix =
+    endDayOffset === 1 ? " next day" : endDayOffset > 1 ? ` (+${endDayOffset} days)` : "";
+  return `${start}–${end}${suffix}`;
+}
+
+/** True when any activity in the plan predates stored end times (the plan needs regenerating). */
+export function planLacksEndTimes(plan: Pick<RecoveryPlanView, "activities">): boolean {
+  return plan.activities.some((activity) => !activity.endsAt);
 }
 
 export function offsetDescription(minutes: number): string {
@@ -265,24 +332,91 @@ export function getLocalHour(date: Date, timeZone: string): number {
   return Number(hour);
 }
 
+/** A user's own activity (e.g. a meeting) shown alongside the plan. */
+export interface PersonalActivityView {
+  id: number;
+  title: string;
+  notes: string | null;
+  startsAt: string;
+  endsAt: string;
+  timeZone: string;
+}
+
+export function toPersonalActivityView(activity: {
+  id: number;
+  title: string;
+  notes: string | null;
+  startsAt: Date;
+  endsAt: Date;
+  timeZone: string;
+}): PersonalActivityView {
+  return {
+    id: activity.id,
+    title: activity.title,
+    notes: activity.notes,
+    startsAt: activity.startsAt.toISOString(),
+    endsAt: activity.endsAt.toISOString(),
+    timeZone: activity.timeZone,
+  };
+}
+
+/** Personal activities that start on a calendar day, in that day's time zone. */
+export function personalActivitiesForDay(
+  day: Pick<PlanCalendarDay, "date" | "timeZone">,
+  personal: PersonalActivityView[],
+): PersonalActivityView[] {
+  return personal
+    .filter((activity) => getLocalDate(new Date(activity.startsAt), day.timeZone) === day.date)
+    .sort((first, second) => first.startsAt.localeCompare(second.startsAt));
+}
+
+/**
+ * Plan activities that overlap a personal activity. Caffeine windows are
+ * excluded because they are guidance windows rather than booked time.
+ */
+export function findPlanOverlaps(
+  personal: Pick<PersonalActivityView, "startsAt" | "endsAt">,
+  planActivities: RecoveryActivityView[],
+): RecoveryActivityView[] {
+  const start = new Date(personal.startsAt).getTime();
+  const end = new Date(personal.endsAt).getTime();
+  return planActivities.filter(
+    (activity) =>
+      activity.type !== "caffeine" &&
+      activity.endsAt &&
+      new Date(activity.scheduledAt).getTime() < end &&
+      new Date(activity.endsAt).getTime() > start,
+  );
+}
+
 export interface CalendarHourSlot {
   hour: number;
   activities: RecoveryActivityView[];
+  personal: PersonalActivityView[];
 }
 
-/** Builds one slot per local hour from the first to the last activity hour of a day. */
-export function getCalendarHourSlots(day: PlanCalendarDay): CalendarHourSlot[] {
-  if (day.activities.length === 0) return [];
-  const hours = day.activities.map((activity) =>
+/** Builds one slot per local hour spanning a day's plan and personal activities. */
+export function getCalendarHourSlots(
+  day: PlanCalendarDay,
+  personal: PersonalActivityView[] = [],
+): CalendarHourSlot[] {
+  const dayPersonal = personalActivitiesForDay(day, personal);
+  if (day.activities.length === 0 && dayPersonal.length === 0) return [];
+  const planHours = day.activities.map((activity) =>
     getLocalHour(new Date(activity.scheduledAt), activity.timeZone),
   );
+  const personalHours = dayPersonal.map((activity) =>
+    getLocalHour(new Date(activity.startsAt), day.timeZone),
+  );
+  const hours = [...planHours, ...personalHours];
   const first = Math.min(...hours);
   const last = Math.max(...hours);
   return Array.from({ length: last - first + 1 }, (_, index) => {
     const hour = first + index;
     return {
       hour,
-      activities: day.activities.filter((_, activityIndex) => hours[activityIndex] === hour),
+      activities: day.activities.filter((_, activityIndex) => planHours[activityIndex] === hour),
+      personal: dayPersonal.filter((_, activityIndex) => personalHours[activityIndex] === hour),
     };
   });
 }
@@ -349,6 +483,7 @@ export function toRecoveryPlanView(plan: StoredRecoveryPlan): RecoveryPlanView {
       title: activity.title,
       guidance: activity.guidance,
       scheduledAt: activity.scheduledAt.toISOString(),
+      endsAt: activity.endsAt?.toISOString() ?? null,
       completedAt: activity.completedAt?.toISOString() ?? null,
       timeZone: activity.timeZone,
     })),

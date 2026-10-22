@@ -24,7 +24,9 @@ features:
   journey calculations.
 - A deterministic multi-day recovery-plan estimate with destination-local
   sleep, daylight, meal, hydration, gentle-movement, and conservative caffeine
-  guidance.
+  guidance. Each activity has a start and end time (e.g. lunch 12:30–13:15,
+  sleep 22:00–07:00 next day), and an optional short nap is offered on the
+  first two recovery days.
 - A trip-specific dashboard with trip stage, next target bedtime, flexible
   wake/bedtime preferences, and persisted activity completion.
 - A standalone Daily Dashboard (`/dashboard`, linked from the primary
@@ -41,6 +43,10 @@ features:
   provider schedule, and estimated and actual times separately, with delays,
   early times, cancellations, and diversions highlighted. Verified changes can
   be applied to the recovery plan, recalculating future guidance only.
+- Personal activities: users can add, edit, and delete their own activities
+  (e.g. meetings or dinners) with start and end times on any day of the plan
+  calendar. Overlaps with plan guidance are pointed out, and these activities
+  are kept when a plan is regenerated.
 - Round trips: flights are marked Outbound or Return. Each trip can have an
   arrival recovery plan and a back-home recovery plan built from the return
   flights; Flight Status, the trip page, and the Daily Dashboard show and

@@ -48,12 +48,80 @@ describe("recovery-plan engine", () => {
     expect(plan.targetBedtime).toBe("23:00");
     expect(plan.targetWakeTime).toBe("08:00");
     expect(plan.avoidCaffeine).toBe(true);
+    // New York is UTC-4 here: the caffeine-free window runs from 08:00 wake to 23:00 bedtime.
     expect(
-      plan.activities.find((activity) => activity.title === "Caffeine-free afternoon"),
-    ).toBeDefined();
+      plan.activities.find((activity) => activity.title === "Caffeine-free day"),
+    ).toMatchObject({
+      type: "caffeine",
+      scheduledAt: new Date("2026-05-02T12:00:00.000Z"),
+      endsAt: new Date("2026-05-03T03:00:00.000Z"),
+    });
     expect(
       plan.activities.find((activity) => activity.title === "Target bedtime")?.scheduledAt,
     ).toEqual(new Date("2026-05-02T03:00:00.000Z"));
+  });
+
+  it("gives every activity a start and a later end, with overnight sleep ending at the next wake", () => {
+    const plan = generateRecoveryPlan(standardTrip);
+
+    expect(
+      plan.activities.every(
+        (activity) => activity.endsAt.getTime() > activity.scheduledAt.getTime(),
+      ),
+    ).toBe(true);
+    // Day 2 in New York (UTC-4): sleep 22:00 on 2 May until 07:00 on 3 May.
+    expect(
+      plan.activities.find(
+        (activity) => activity.dayNumber === 2 && activity.title === "Target bedtime",
+      ),
+    ).toMatchObject({
+      scheduledAt: new Date("2026-05-03T02:00:00.000Z"),
+      endsAt: new Date("2026-05-03T11:00:00.000Z"),
+    });
+    expect(
+      plan.activities.find(
+        (activity) =>
+          activity.dayNumber === 2 && activity.title === "Caffeine window, if you use it",
+      ),
+    ).toMatchObject({
+      scheduledAt: new Date("2026-05-02T11:00:00.000Z"),
+      endsAt: new Date("2026-05-02T18:00:00.000Z"),
+    });
+    expect(
+      plan.activities.find((activity) => activity.dayNumber === 2 && activity.title === "Lunch"),
+    ).toMatchObject({
+      scheduledAt: new Date("2026-05-02T16:30:00.000Z"),
+      endsAt: new Date("2026-05-02T17:15:00.000Z"),
+    });
+  });
+
+  it("offers an optional short early-afternoon nap on the first two recovery days only", () => {
+    const plan = generateRecoveryPlan(standardTrip);
+    const naps = plan.activities.filter((activity) => activity.title === "Optional short nap");
+
+    expect(naps.map((nap) => nap.dayNumber)).toEqual([1, 2]);
+    expect(naps[0]).toMatchObject({
+      type: "sleep",
+      scheduledAt: new Date("2026-05-01T17:30:00.000Z"),
+      endsAt: new Date("2026-05-01T18:00:00.000Z"),
+    });
+    expect(naps[0].guidance).toContain("20–30 minutes");
+    expect(naps[0].guidance).toContain("Skip it if you feel fine");
+  });
+
+  it("ends the evening wind-down at an early bedtime", () => {
+    const plan = generateRecoveryPlan({
+      ...standardTrip,
+      preferences: { targetBedtime: "19:00" },
+    });
+    const evening = plan.activities.find(
+      (activity) => activity.dayNumber === 2 && activity.title === "Keep a calm, dimmer evening",
+    );
+
+    expect(evening).toMatchObject({
+      scheduledAt: new Date("2026-05-02T22:00:00.000Z"),
+      endsAt: new Date("2026-05-02T23:00:00.000Z"),
+    });
   });
 
   it("uses chronologically ordered flight segments to calculate itinerary direction", () => {

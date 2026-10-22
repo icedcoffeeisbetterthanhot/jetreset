@@ -3,7 +3,9 @@
 import React, { FormEvent, useState } from "react";
 import {
   ACTIVITY_LABELS,
+  formatActivityTimeRange,
   getDailyRecoveryState,
+  planLacksEndTimes,
   offsetDescription,
   type RecoveryActivityView,
   type RecoveryPlanView,
@@ -202,6 +204,15 @@ export function RecoveryDashboard({
                 matches.
               </p>
             )}
+            {planLacksEndTimes(plan) && (
+              <p
+                className="rounded-md border border-brand/30 bg-brand-soft px-4 py-3 text-sm text-brand-dark"
+                role="status"
+              >
+                This plan was created before activity end times and optional naps were added. Use
+                &ldquo;Adjust preferences and regenerate&rdquo; below to update it.
+              </p>
+            )}
             {plan.adjustmentNote && (
               <p className="rounded-md border border-brand/30 bg-brand-soft px-4 py-3 text-sm text-brand-dark">
                 {plan.adjustmentNote}
@@ -306,11 +317,7 @@ export function RecoveryDashboard({
                       >
                         <span className="flex flex-wrap items-center gap-2">
                           <span className="text-xs font-medium text-slate-500">
-                            {ACTIVITY_LABELS[activity.type]} ·{" "}
-                            {new Intl.DateTimeFormat("en-GB", {
-                              timeStyle: "short",
-                              timeZone: activity.timeZone,
-                            }).format(new Date(activity.scheduledAt))}
+                            {ACTIVITY_LABELS[activity.type]} · {formatActivityTimeRange(activity)}
                           </span>
                           {activity.completedAt !== null && (
                             <span className="text-xs font-medium text-success-dark">Completed</span>

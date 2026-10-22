@@ -39,6 +39,8 @@ export interface RecoveryActivityDraft {
   title: string;
   guidance: string;
   scheduledAt: Date;
+  /** When the activity ends (the next morning for overnight sleep). */
+  endsAt: Date;
   timeZone: string;
 }
 
@@ -103,23 +105,39 @@ function scheduleLocal(date: string, time: string, timeZone: string): Date {
   return toZonedInstant(input);
 }
 
+/** Adds minutes to an "HH:MM" time within the same day (callers keep results before 24:00). */
+function shiftTime(time: string, minutes: number): string {
+  const [hours, mins] = time.split(":").map(Number);
+  const total = Math.min(23 * 60 + 59, Math.max(0, hours * 60 + mins + minutes));
+  return `${Math.floor(total / 60)
+    .toString()
+    .padStart(2, "0")}:${(total % 60).toString().padStart(2, "0")}`;
+}
+
 function addActivity(
   activities: RecoveryActivityDraft[],
-  dayNumber: number,
-  date: string,
-  time: string,
-  type: RecoveryActivityType,
-  title: string,
-  guidance: string,
-  timeZone: string,
+  activity: {
+    dayNumber: number;
+    date: string;
+    start: string;
+    /** End time; on the following local day when `endsNextDay` is set (e.g. overnight sleep). */
+    end: string;
+    endsNextDay?: boolean;
+    type: RecoveryActivityType;
+    title: string;
+    guidance: string;
+    timeZone: string;
+  },
 ): void {
+  const { dayNumber, date, start, end, endsNextDay, type, title, guidance, timeZone } = activity;
   activities.push({
-    activityKey: `${dayNumber}-${type}-${date}T${time.replace(":", "")}`,
+    activityKey: `${dayNumber}-${type}-${date}T${start.replace(":", "")}`,
     dayNumber,
     type,
     title,
     guidance,
-    scheduledAt: scheduleLocal(date, time, timeZone),
+    scheduledAt: scheduleLocal(date, start, timeZone),
+    endsAt: scheduleLocal(endsNextDay ? addCalendarDays(date, 1) : date, end, timeZone),
     timeZone,
   });
 }
@@ -178,132 +196,136 @@ export function generateRecoveryPlan(input: RecoveryPlanInput): RecoveryPlanDraf
 
   if (preparationDaysAvailable >= 1) {
     const preparationDate = addCalendarDays(localDate(departureAt, originTimeZone), -1);
-    addActivity(
-      activities,
-      0,
-      preparationDate,
-      "21:00",
-      "sleep",
-      "Keep your usual sleep routine",
-      "Before departure, keeping your usual sleep and wake pattern is a simple preparation option. This plan does not prescribe a pre-trip sleep shift.",
-      originTimeZone,
-    );
+    addActivity(activities, {
+      dayNumber: 0,
+      date: preparationDate,
+      start: "21:00",
+      end: "21:30",
+      type: "sleep",
+      title: "Keep your usual sleep routine",
+      guidance:
+        "Before departure, keeping your usual sleep and wake pattern is a simple preparation option. This plan does not prescribe a pre-trip sleep shift.",
+      timeZone: originTimeZone,
+    });
   }
+
+  // Short naps are offered only on the first days, when sleep debt is most likely.
+  const NAP_DAYS = 2;
+  // The evening wind-down ends at bedtime and starts no later than 20:30.
+  const eveningStart = targetBedtime > "21:30" ? "20:30" : shiftTime(targetBedtime, -60);
 
   for (let dayNumber = 1; dayNumber <= recoveryDays; dayNumber += 1) {
     const date = addCalendarDays(destinationDate, dayNumber - 1);
-    addActivity(
-      activities,
-      dayNumber,
-      date,
-      targetWakeTime,
-      "sleep",
-      "Target wake time",
-      "Use this as a flexible destination-local wake-time target. Adjust for your arrival, obligations, and how you feel.",
-      routeDestinationTimeZone,
-    );
-    addActivity(
-      activities,
-      dayNumber,
-      date,
-      "08:30",
-      "meal",
-      "Breakfast",
-      "If it suits your routine, have a meal around this destination-local time.",
-      routeDestinationTimeZone,
-    );
-    addActivity(
-      activities,
-      dayNumber,
-      date,
-      "09:00",
-      "light",
-      "Get outdoor daylight when practical",
-      "Daylight during the local morning can help anchor a regular day-night routine. This is general guidance, not a personalized circadian light prescription; reduce bright light if it is uncomfortable or conflicts with clinical advice.",
-      routeDestinationTimeZone,
-    );
-    addActivity(
-      activities,
-      dayNumber,
-      date,
-      "11:00",
-      "hydration",
-      "Pause for water",
-      "Consider drinking water with your usual routine. Individual hydration needs vary; no personal fluid target is calculated.",
-      routeDestinationTimeZone,
-    );
-    addActivity(
-      activities,
-      dayNumber,
-      date,
-      "12:30",
-      "meal",
-      "Lunch",
-      "A regular meal at destination-local lunchtime may help establish the local day.",
-      routeDestinationTimeZone,
-    );
-    addActivity(
-      activities,
-      dayNumber,
-      date,
-      "14:00",
-      "caffeine",
-      avoidCaffeine ? "Caffeine-free afternoon" : "Keep caffeine early, if you use it",
-      avoidCaffeine
+    const day = { dayNumber, date, timeZone: routeDestinationTimeZone };
+    addActivity(activities, {
+      ...day,
+      start: targetWakeTime,
+      end: shiftTime(targetWakeTime, 30),
+      type: "sleep",
+      title: "Target wake time",
+      guidance:
+        "Use this as a flexible destination-local wake-time target. Adjust for your arrival, obligations, and how you feel.",
+    });
+    addActivity(activities, {
+      ...day,
+      start: "08:30",
+      end: "09:00",
+      type: "meal",
+      title: "Breakfast",
+      guidance: "If it suits your routine, have a meal around this destination-local time.",
+    });
+    addActivity(activities, {
+      ...day,
+      start: "09:00",
+      end: "09:30",
+      type: "light",
+      title: "Get outdoor daylight when practical",
+      guidance:
+        "Daylight during the local morning can help anchor a regular day-night routine. This is general guidance, not a personalized circadian light prescription; reduce bright light if it is uncomfortable or conflicts with clinical advice.",
+    });
+    addActivity(activities, {
+      ...day,
+      start: "11:00",
+      end: "11:10",
+      type: "hydration",
+      title: "Pause for water",
+      guidance:
+        "Consider drinking water with your usual routine. Individual hydration needs vary; no personal fluid target is calculated.",
+    });
+    addActivity(activities, {
+      ...day,
+      start: "12:30",
+      end: "13:15",
+      type: "meal",
+      title: "Lunch",
+      guidance: "A regular meal at destination-local lunchtime may help establish the local day.",
+    });
+    if (dayNumber <= NAP_DAYS) {
+      addActivity(activities, {
+        ...day,
+        start: "13:30",
+        end: "14:00",
+        type: "sleep",
+        title: "Optional short nap",
+        guidance:
+          "Only if you feel very tired: a short nap of about 20–30 minutes in the early afternoon may help you get through the day. Skip it if you feel fine, and avoid long or late-afternoon naps, which can make it harder to fall asleep at bedtime. Do not nap if you need to drive or stay alert.",
+      });
+    }
+    addActivity(activities, {
+      ...day,
+      start: targetWakeTime,
+      end: avoidCaffeine ? targetBedtime : "14:00",
+      type: "caffeine",
+      title: avoidCaffeine ? "Caffeine-free day" : "Caffeine window, if you use it",
+      guidance: avoidCaffeine
         ? "You chose to avoid caffeine. This plan does not recommend starting or increasing caffeine."
-        : "If you already use caffeine and it is appropriate for you, consider avoiding it after this early-afternoon point so it is less likely to interfere with sleep. This is not a dose recommendation; skip it if you have been advised to avoid caffeine.",
-      routeDestinationTimeZone,
-    );
-    addActivity(
-      activities,
-      dayNumber,
-      date,
-      "15:30",
-      "hydration",
-      "Water break",
-      "Consider a water break as convenient. Follow any fluid guidance from your healthcare professional.",
-      routeDestinationTimeZone,
-    );
-    addActivity(
-      activities,
-      dayNumber,
-      date,
-      "16:30",
-      "exercise",
-      "Gentle movement",
-      "If comfortable and practical, try light movement such as a short walk. Rest if tired and follow any personal medical advice.",
-      routeDestinationTimeZone,
-    );
-    addActivity(
-      activities,
-      dayNumber,
-      date,
-      "18:30",
-      "meal",
-      "Evening meal",
-      "A meal around the local evening can help reinforce a regular daily rhythm.",
-      routeDestinationTimeZone,
-    );
-    addActivity(
-      activities,
-      dayNumber,
-      date,
-      "20:30",
-      "light",
-      "Keep a calm, dimmer evening",
-      "As bedtime approaches, a calm evening with less bright light may support your wind-down routine. This is general guidance, not a personalized light-avoidance prescription.",
-      routeDestinationTimeZone,
-    );
-    addActivity(
-      activities,
-      dayNumber,
-      date,
-      targetBedtime,
-      "sleep",
-      "Target bedtime",
-      "Use this as a flexible destination-local bedtime target. Prioritize adequate rest and adjust to your needs.",
-      routeDestinationTimeZone,
-    );
+        : "If you already use caffeine and it is appropriate for you, consider keeping it within this window so it is less likely to interfere with sleep. This is not a dose recommendation; skip it if you have been advised to avoid caffeine.",
+    });
+    addActivity(activities, {
+      ...day,
+      start: "15:30",
+      end: "15:40",
+      type: "hydration",
+      title: "Water break",
+      guidance:
+        "Consider a water break as convenient. Follow any fluid guidance from your healthcare professional.",
+    });
+    addActivity(activities, {
+      ...day,
+      start: "16:30",
+      end: "17:00",
+      type: "exercise",
+      title: "Gentle movement",
+      guidance:
+        "If comfortable and practical, try light movement such as a short walk. Rest if tired and follow any personal medical advice.",
+    });
+    addActivity(activities, {
+      ...day,
+      start: "18:30",
+      end: "19:30",
+      type: "meal",
+      title: "Evening meal",
+      guidance: "A meal around the local evening can help reinforce a regular daily rhythm.",
+    });
+    addActivity(activities, {
+      ...day,
+      start: eveningStart,
+      end: targetBedtime,
+      type: "light",
+      title: "Keep a calm, dimmer evening",
+      guidance:
+        "As bedtime approaches, a calm evening with less bright light may support your wind-down routine. This is general guidance, not a personalized light-avoidance prescription.",
+    });
+    addActivity(activities, {
+      ...day,
+      start: targetBedtime,
+      end: targetWakeTime,
+      endsNextDay: true,
+      type: "sleep",
+      title: "Target bedtime",
+      guidance:
+        "Use this as a flexible destination-local bedtime target, sleeping until your wake-time target. Prioritize adequate rest and adjust to your needs.",
+    });
   }
 
   const arrivalTimestamp = routeArrivalAt.getTime();

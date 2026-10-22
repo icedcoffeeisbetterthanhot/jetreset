@@ -245,13 +245,42 @@ arrival plan and one back-home plan. Shared helpers live in
 - **Migration**: `20261022140000_add_journey_legs` adds the enum and columns
   with an `outbound` default, so existing flights and plans are unchanged.
 
+## Personal Activities
+
+Users can add their own activities (title, local start and end time, optional
+notes) to any day of the plan calendar. `PersonalActivity` rows belong to the
+**trip**, not a recovery plan, so regenerating a plan or applying flight-status
+changes never removes them; they cascade only when the trip is deleted. The
+service (`src/server/personalActivityService.ts`) validates input with `zod`,
+converts local times with the day's IANA zone (rejecting nonexistent DST times),
+requires the end to be after the start (also enforced by a database check
+constraint), and scopes updates and deletes to the trip. API:
+`GET/POST /api/trips/[id]/personal-activities` and
+`PUT/DELETE /api/trips/[id]/personal-activities/[activityId]`.
+
+On the calendar they appear with a distinct style, show start, end, and
+duration, and list overlapping plan activities (`findPlanOverlaps`, which
+ignores caffeine windows). They are not counted in recovery-plan progress.
+
 ## Recovery Planning and Daily Dashboard
 
 `src/lib/recoveryPlan.ts` is a deterministic planner that takes trip times,
 IANA zones, optional flight segments, a reference date, and limited user
 preferences. It estimates the offset change at the itinerary endpoints and
 creates a 3–7 day destination-local schedule, with an optional pre-departure
-routine reminder when at least one full day remains. It records total elapsed
+routine reminder when at least one full day remains. Every activity has a start
+(`scheduledAt`) and an end (`endsAt`, nullable for activities created before
+end times were stored): for example a 30-minute wake window, 45-minute lunch,
+caffeine window from wake to 14:00 (or a caffeine-free day from wake to
+bedtime), a wind-down from 20:30 (or an hour before an earlier bedtime) to
+bedtime, and overnight sleep from bedtime to the next day's wake target. An
+"Optional short nap" (13:30–14:00, sleep type) is offered on recovery days 1
+and 2 only, with conservative guidance to keep it to 20–30 minutes, skip it if
+not needed, and avoid long or late naps. Migration
+`20261022170000_backfill_activity_end_times` fills `endsAt` for activities
+created earlier using the same durations (computed in each activity's time
+zone) and converts the old 14:00 caffeine cut-off into the wake-to-14:00
+window; it does not add naps to existing plans. It records total elapsed
 journey duration from the flight itinerary when available, otherwise from the
 trip's planned times. On arrival day, it does not schedule routine activities
 before the scheduled arrival instant.
