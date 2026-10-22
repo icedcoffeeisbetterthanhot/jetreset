@@ -199,6 +199,23 @@ arrival plan and one back-home plan. Shared helpers live in
 - **Migration**: `20261022140000_add_journey_legs` adds the enum and columns
   with an `outbound` default, so existing flights and plans are unchanged.
 
+## Personal Activities
+
+Users can add their own activities (title, local start and end time, optional
+notes) to any day of the plan calendar. `PersonalActivity` rows belong to the
+**trip**, not a recovery plan, so regenerating a plan or applying flight-status
+changes never removes them; they cascade only when the trip is deleted. The
+service (`src/server/personalActivityService.ts`) validates input with `zod`,
+converts local times with the day's IANA zone (rejecting nonexistent DST times),
+requires the end to be after the start (also enforced by a database check
+constraint), and scopes updates and deletes to the trip. API:
+`GET/POST /api/trips/[id]/personal-activities` and
+`PUT/DELETE /api/trips/[id]/personal-activities/[activityId]`.
+
+On the calendar they appear with a distinct style, show start, end, and
+duration, and list overlapping plan activities (`findPlanOverlaps`, which
+ignores caffeine windows). They are not counted in recovery-plan progress.
+
 ## Recovery Planning and Daily Dashboard
 
 `src/lib/recoveryPlan.ts` is a deterministic planner that takes trip times,

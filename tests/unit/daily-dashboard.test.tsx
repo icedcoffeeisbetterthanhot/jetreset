@@ -235,3 +235,128 @@ describe("DailyDashboard", () => {
     );
   });
 });
+
+describe("DailyDashboard personal activities", () => {
+  const meeting = {
+    id: 31,
+    title: "Client meeting",
+    notes: "Bring slides",
+    // 12:00–13:00 in New York, overlapping lunch (12:30–13:15).
+    startsAt: "2026-06-01T16:00:00.000Z",
+    endsAt: "2026-06-01T17:00:00.000Z",
+    timeZone,
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-01T14:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("shows your activities in the calendar with times and plan overlaps", () => {
+    render(
+      <DailyDashboard
+        {...baseProps}
+        personalActivities={[meeting]}
+        initialNow="2026-06-01T14:00:00.000Z"
+      />,
+    );
+
+    const schedule = screen.getByRole("list", { name: "Schedule for Day 1" });
+    const card = within(schedule).getByRole("button", { name: "Edit Client meeting" }).parentElement
+      ?.parentElement?.parentElement as HTMLElement;
+    expect(card).toHaveTextContent(/Start\s*12:00\s*End\s*13:00\s*1 h/);
+    expect(card).toHaveTextContent("Your activity");
+    expect(card).toHaveTextContent("Bring slides");
+    expect(card).toHaveTextContent("Overlaps with your plan: Lunch (12:30–13:15)");
+    expect(
+      within(screen.getByRole("list", { name: "Activity types" })).getByText("Your activity"),
+    ).toBeInTheDocument();
+  });
+
+  it("adds an activity to the selected day in that day's time zone", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 40,
+        title: "Dinner with friends",
+        notes: null,
+        startsAt: "2026-06-01T23:00:00.000Z",
+        endsAt: "2026-06-02T01:00:00.000Z",
+        timeZone,
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<DailyDashboard {...baseProps} initialNow="2026-06-01T14:00:00.000Z" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add activity" }));
+    const form = screen.getByRole("form", { name: "Add your activity" });
+    fireEvent.change(within(form).getByLabelText("Title"), {
+      target: { value: "Dinner with friends" },
+    });
+    fireEvent.change(within(form).getByLabelText("Start time"), { target: { value: "19:00" } });
+    fireEvent.change(within(form).getByLabelText("End time"), { target: { value: "21:00" } });
+    await act(async () => {
+      fireEvent.click(within(form).getByRole("button", { name: "Add to calendar" }));
+      for (let index = 0; index < 5; index += 1) await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/trips/4/personal-activities",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      title: "Dinner with friends",
+      notes: "",
+      date: "2026-06-01",
+      startTime: "19:00",
+      endTime: "21:00",
+      timeZone,
+    });
+    expect(screen.queryByRole("form", { name: "Add your activity" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit Dinner with friends" })).toBeInTheDocument();
+  });
+
+  it("checks that the activity ends after it starts before saving", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(<DailyDashboard {...baseProps} initialNow="2026-06-01T14:00:00.000Z" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add activity" }));
+    const form = screen.getByRole("form", { name: "Add your activity" });
+    fireEvent.change(within(form).getByLabelText("Title"), { target: { value: "Call" } });
+    fireEvent.change(within(form).getByLabelText("Start time"), { target: { value: "15:00" } });
+    fireEvent.change(within(form).getByLabelText("End time"), { target: { value: "14:00" } });
+    fireEvent.submit(form);
+
+    expect(within(form).getByRole("alert")).toHaveTextContent("must end after it starts");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("deletes an activity after confirmation", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => null });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
+    render(
+      <DailyDashboard
+        {...baseProps}
+        personalActivities={[meeting]}
+        initialNow="2026-06-01T14:00:00.000Z"
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Delete Client meeting" }));
+      for (let index = 0; index < 5; index += 1) await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/trips/4/personal-activities/31", {
+      method: "DELETE",
+    });
+    expect(screen.queryByText("Client meeting")).not.toBeInTheDocument();
+  });
+});

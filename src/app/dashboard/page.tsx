@@ -12,7 +12,8 @@ import {
   parseJourneyLeg,
   type JourneyLeg,
 } from "@lib/journeyLeg";
-import { toRecoveryPlanView } from "@lib/recoveryDashboard";
+import { toPersonalActivityView, toRecoveryPlanView } from "@lib/recoveryDashboard";
+import { listPersonalActivities } from "@server/personalActivityService";
 import { getRecoveryPlan, listDashboardTrips } from "@server/recoveryService";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -43,6 +44,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         return: await getRecoveryPlan(selectedTrip.id, "return"),
       }
     : null;
+  const personalActivities = selectedTrip
+    ? (await listPersonalActivities(selectedTrip.id)).map(toPersonalActivityView)
+    : [];
   // Once the return journey has started, the back-home plan is the relevant one.
   const returnPlan = plans?.return.plan;
   const defaultLeg: JourneyLeg =
@@ -136,6 +140,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               flightStatusChangePending={recovery.flightStatusChangePending}
               flightStatusAlerts={recovery.flightStatusAlerts}
               planLabel={availableLegs.length > 1 ? RECOVERY_PLAN_LABELS[leg] : undefined}
+              personalActivities={personalActivities}
               initialNow={now.toISOString()}
             />
           ) : leg === "return" ? (

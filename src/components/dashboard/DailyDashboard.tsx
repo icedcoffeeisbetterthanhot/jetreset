@@ -11,9 +11,15 @@ import {
   getPlanCalendarDays,
   offsetDescription,
   type RecoveryActivityView,
+  type PersonalActivityView,
   type RecoveryPlanView,
 } from "@lib/recoveryDashboard";
 import { updateActivityCompletion } from "@components/trips/recoveryApi";
+import {
+  deletePersonalActivity,
+  savePersonalActivity,
+  type PersonalActivityInput,
+} from "@components/dashboard/personalActivityApi";
 import { ActivityIcon } from "@components/dashboard/ActivityIcon";
 import { CATEGORY_STYLES, RecoveryCalendar } from "@components/dashboard/RecoveryCalendar";
 
@@ -30,6 +36,8 @@ interface DailyDashboardProps {
   flightStatusAlerts?: string[];
   /** Which plan this is, e.g. "Back-home recovery plan". */
   planLabel?: string;
+  /** The user's own activities for this trip. */
+  personalActivities?: PersonalActivityView[];
   /** Server render time, so the first client render matches the server output. */
   initialNow: string;
 }
@@ -57,12 +65,28 @@ export function DailyDashboard({
   flightStatusChangePending = false,
   flightStatusAlerts = [],
   planLabel,
+  personalActivities: initialPersonalActivities = [],
   initialNow,
 }: DailyDashboardProps) {
   const [plan, setPlan] = useState(initialPlan);
   const [now, setNow] = useState(() => new Date(initialNow));
   const [updatingActivityId, setUpdatingActivityId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [personalActivities, setPersonalActivities] = useState(initialPersonalActivities);
+
+  async function handleSavePersonal(input: PersonalActivityInput, activityId?: number) {
+    const saved = await savePersonalActivity(tripId, input, activityId);
+    setPersonalActivities((current) =>
+      activityId
+        ? current.map((activity) => (activity.id === saved.id ? saved : activity))
+        : [...current, saved],
+    );
+  }
+
+  async function handleDeletePersonal(activityId: number) {
+    await deletePersonalActivity(tripId, activityId);
+    setPersonalActivities((current) => current.filter((activity) => activity.id !== activityId));
+  }
 
   useEffect(() => {
     setNow(new Date());
@@ -304,6 +328,9 @@ export function DailyDashboard({
           now={now}
           updatingActivityId={updatingActivityId}
           onToggle={(activity) => void handleActivityToggle(activity)}
+          personalActivities={personalActivities}
+          onSavePersonal={handleSavePersonal}
+          onDeletePersonal={handleDeletePersonal}
         />
       )}
 

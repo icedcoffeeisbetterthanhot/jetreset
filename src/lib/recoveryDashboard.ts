@@ -332,24 +332,91 @@ export function getLocalHour(date: Date, timeZone: string): number {
   return Number(hour);
 }
 
+/** A user's own activity (e.g. a meeting) shown alongside the plan. */
+export interface PersonalActivityView {
+  id: number;
+  title: string;
+  notes: string | null;
+  startsAt: string;
+  endsAt: string;
+  timeZone: string;
+}
+
+export function toPersonalActivityView(activity: {
+  id: number;
+  title: string;
+  notes: string | null;
+  startsAt: Date;
+  endsAt: Date;
+  timeZone: string;
+}): PersonalActivityView {
+  return {
+    id: activity.id,
+    title: activity.title,
+    notes: activity.notes,
+    startsAt: activity.startsAt.toISOString(),
+    endsAt: activity.endsAt.toISOString(),
+    timeZone: activity.timeZone,
+  };
+}
+
+/** Personal activities that start on a calendar day, in that day's time zone. */
+export function personalActivitiesForDay(
+  day: Pick<PlanCalendarDay, "date" | "timeZone">,
+  personal: PersonalActivityView[],
+): PersonalActivityView[] {
+  return personal
+    .filter((activity) => getLocalDate(new Date(activity.startsAt), day.timeZone) === day.date)
+    .sort((first, second) => first.startsAt.localeCompare(second.startsAt));
+}
+
+/**
+ * Plan activities that overlap a personal activity. Caffeine windows are
+ * excluded because they are guidance windows rather than booked time.
+ */
+export function findPlanOverlaps(
+  personal: Pick<PersonalActivityView, "startsAt" | "endsAt">,
+  planActivities: RecoveryActivityView[],
+): RecoveryActivityView[] {
+  const start = new Date(personal.startsAt).getTime();
+  const end = new Date(personal.endsAt).getTime();
+  return planActivities.filter(
+    (activity) =>
+      activity.type !== "caffeine" &&
+      activity.endsAt &&
+      new Date(activity.scheduledAt).getTime() < end &&
+      new Date(activity.endsAt).getTime() > start,
+  );
+}
+
 export interface CalendarHourSlot {
   hour: number;
   activities: RecoveryActivityView[];
+  personal: PersonalActivityView[];
 }
 
-/** Builds one slot per local hour from the first to the last activity hour of a day. */
-export function getCalendarHourSlots(day: PlanCalendarDay): CalendarHourSlot[] {
-  if (day.activities.length === 0) return [];
-  const hours = day.activities.map((activity) =>
+/** Builds one slot per local hour spanning a day's plan and personal activities. */
+export function getCalendarHourSlots(
+  day: PlanCalendarDay,
+  personal: PersonalActivityView[] = [],
+): CalendarHourSlot[] {
+  const dayPersonal = personalActivitiesForDay(day, personal);
+  if (day.activities.length === 0 && dayPersonal.length === 0) return [];
+  const planHours = day.activities.map((activity) =>
     getLocalHour(new Date(activity.scheduledAt), activity.timeZone),
   );
+  const personalHours = dayPersonal.map((activity) =>
+    getLocalHour(new Date(activity.startsAt), day.timeZone),
+  );
+  const hours = [...planHours, ...personalHours];
   const first = Math.min(...hours);
   const last = Math.max(...hours);
   return Array.from({ length: last - first + 1 }, (_, index) => {
     const hour = first + index;
     return {
       hour,
-      activities: day.activities.filter((_, activityIndex) => hours[activityIndex] === hour),
+      activities: day.activities.filter((_, activityIndex) => planHours[activityIndex] === hour),
+      personal: dayPersonal.filter((_, activityIndex) => personalHours[activityIndex] === hour),
     };
   });
 }

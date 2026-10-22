@@ -16,19 +16,39 @@ model AppHealthCheck {
 }
 
 model Trip {
-  id                  Int             @id @default(autoincrement())
-  name                String          @db.VarChar(200)
-  origin              String          @db.VarChar(200)
-  destination         String          @db.VarChar(200)
-  originTimeZone      String          @db.VarChar(100)
-  destinationTimeZone String          @db.VarChar(100)
+  id                  Int                @id @default(autoincrement())
+  name                String             @db.VarChar(200)
+  origin              String             @db.VarChar(200)
+  destination         String             @db.VarChar(200)
+  originTimeZone      String             @db.VarChar(100)
+  destinationTimeZone String             @db.VarChar(100)
   departureAt         DateTime
   arrivalAt           DateTime
-  notes               String?         @db.VarChar(2000)
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  notes               String?            @db.VarChar(2000)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
   flightSegments      FlightSegment[]
   recoveryPlans       RecoveryPlan[]
+  personalActivities  PersonalActivity[]
+}
+
+/// A user's own planned activity (e.g. a meeting) shown on the plan calendar.
+/// Linked to the trip, not a recovery plan, so regenerating or adjusting a plan
+/// never removes it.
+model PersonalActivity {
+  id        Int      @id @default(autoincrement())
+  tripId    Int
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  title     String   @db.VarChar(120)
+  notes     String?  @db.VarChar(500)
+  startsAt  DateTime
+  endsAt    DateTime
+  /// IANA zone the activity was entered in; times display in this zone.
+  timeZone  String   @db.VarChar(100)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tripId, startsAt])
 }
 
 /// Which half of a round trip a flight or recovery plan belongs to.

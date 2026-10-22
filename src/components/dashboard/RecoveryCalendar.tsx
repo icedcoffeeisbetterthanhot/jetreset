@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { RECOVERY_ACTIVITY_TYPES, type RecoveryActivityType } from "@lib/recoveryPlan";
 import {
   getCalendarHourSlots,
@@ -8,10 +8,18 @@ import {
   getLocalHour,
   formatActivityDuration,
   getActivityTimes,
+  type PersonalActivityView,
   type PlanCalendarDay,
   type RecoveryActivityView,
 } from "@lib/recoveryDashboard";
 import { ActivityIcon } from "@components/dashboard/ActivityIcon";
+import {
+  PERSONAL_STYLE,
+  PersonalActivityForm,
+  PersonalEvent,
+  PersonalIcon,
+} from "@components/dashboard/PersonalActivities";
+import type { PersonalActivityInput } from "@components/dashboard/personalActivityApi";
 
 export const CATEGORY_STYLES: Record<
   RecoveryActivityType,
@@ -56,6 +64,11 @@ interface RecoveryCalendarProps {
   now: Date;
   updatingActivityId: number | null;
   onToggle: (activity: RecoveryActivityView) => void;
+  /** The user's own activities for the trip; those on the selected day are shown. */
+  personalActivities?: PersonalActivityView[];
+  /** Creates (no id) or updates a personal activity; rejects with a user-facing message. */
+  onSavePersonal?: (input: PersonalActivityInput, activityId?: number) => Promise<void>;
+  onDeletePersonal?: (activityId: number) => Promise<void>;
 }
 
 function formatClock(date: Date, timeZone: string): string {
@@ -78,6 +91,10 @@ function dayLabel(dayNumber: number): string {
   return dayNumber === 0 ? "Prep" : `Day ${dayNumber}`;
 }
 
+type SlotEntry =
+  | { kind: "plan"; startsAt: string; activity: RecoveryActivityView }
+  | { kind: "personal"; startsAt: string; activity: PersonalActivityView };
+
 export function RecoveryCalendar({
   days,
   selectedDayNumber,
@@ -85,17 +102,50 @@ export function RecoveryCalendar({
   now,
   updatingActivityId,
   onToggle,
+  personalActivities = [],
+  onSavePersonal,
+  onDeletePersonal,
 }: RecoveryCalendarProps) {
+  const [form, setForm] = useState<
+    { mode: "add" } | { mode: "edit"; activity: PersonalActivityView } | null
+  >(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [personalError, setPersonalError] = useState<string | null>(null);
+
   const selectedDay = days.find((day) => day.dayNumber === selectedDayNumber) ?? days[0];
   if (!selectedDay) return null;
 
+  const canEditPersonal = Boolean(onSavePersonal && onDeletePersonal);
   const isSelectedToday = selectedDay.date === getLocalDate(now, selectedDay.timeZone);
-  const slots = getCalendarHourSlots(selectedDay);
+  const slots = getCalendarHourSlots(selectedDay, personalActivities);
   const nowHour = getLocalHour(now, selectedDay.timeZone);
   const nowLabel = formatClock(now, selectedDay.timeZone);
   const selectedCompleted = selectedDay.activities.filter(
     (activity) => activity.completedAt !== null,
   ).length;
+  const selectedDayLabel = formatDayPart(selectedDay.date, { dateStyle: "full" });
+
+  async function handleSave(input: PersonalActivityInput) {
+    if (!onSavePersonal) return;
+    await onSavePersonal(input, form?.mode === "edit" ? form.activity.id : undefined);
+    setForm(null);
+  }
+
+  async function handleDelete(activity: PersonalActivityView) {
+    if (!onDeletePersonal || !window.confirm(`Delete "${activity.title}"?`)) return;
+    setPersonalError(null);
+    setDeletingId(activity.id);
+    try {
+      await onDeletePersonal(activity.id);
+      if (form?.mode === "edit" && form.activity.id === activity.id) setForm(null);
+    } catch (deleteError) {
+      setPersonalError(
+        deleteError instanceof Error ? deleteError.message : "Unable to delete the activity.",
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <section aria-labelledby="plan-calendar-heading" className="space-y-4">
@@ -114,6 +164,14 @@ export function RecoveryCalendar({
               {CATEGORY_STYLES[type].label}
             </li>
           ))}
+          <li className="flex items-center gap-1.5 text-xs text-slate-600">
+            <span
+              className={`inline-flex h-6 w-6 items-center justify-center rounded-md ring-1 ${PERSONAL_STYLE.badge}`}
+            >
+              <PersonalIcon className="h-3.5 w-3.5" />
+            </span>
+            {PERSONAL_STYLE.label}
+          </li>
         </ul>
       </div>
 
@@ -133,7 +191,10 @@ export function RecoveryCalendar({
                 aria-label={`${dayLabel(day.dayNumber)}, ${formatDayPart(day.date, {
                   dateStyle: "full",
                 })}${isToday ? ", today" : ""}, ${completed} of ${day.activities.length} complete`}
-                onClick={() => onSelectDay(day.dayNumber)}
+                onClick={() => {
+                  setForm(null);
+                  onSelectDay(day.dayNumber);
+                }}
                 className={`flex w-20 flex-col items-center rounded-lg border px-2 py-2 text-center focus-visible:ring-2 focus-visible:ring-brand ${
                   isSelected
                     ? "border-brand bg-brand text-white"
@@ -163,34 +224,82 @@ export function RecoveryCalendar({
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-surface">
-        <header className="flex flex-col gap-1 border-b border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-base font-semibold text-surface-strong">
-            {dayLabel(selectedDay.dayNumber)} ·{" "}
-            {formatDayPart(selectedDay.date, { dateStyle: "full" })}
-            {isSelectedToday && (
-              <span className="ml-2 rounded-full bg-brand-soft px-2 py-0.5 text-xs font-medium text-brand-dark">
-                Today
-              </span>
-            )}
-          </h3>
-          <p className="text-xs text-slate-500">
-            {selectedCompleted} of {selectedDay.activities.length} complete · Times in{" "}
-            {selectedDay.timeZone}
-          </p>
+        <header className="flex flex-col gap-2 border-b border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-0.5">
+            <h3 className="text-base font-semibold text-surface-strong">
+              {dayLabel(selectedDay.dayNumber)} · {selectedDayLabel}
+              {isSelectedToday && (
+                <span className="ml-2 rounded-full bg-brand-soft px-2 py-0.5 text-xs font-medium text-brand-dark">
+                  Today
+                </span>
+              )}
+            </h3>
+            <p className="text-xs text-slate-500">
+              {selectedCompleted} of {selectedDay.activities.length} complete · Times in{" "}
+              {selectedDay.timeZone}
+            </p>
+          </div>
+          {canEditPersonal && form === null && (
+            <button
+              type="button"
+              onClick={() => {
+                setPersonalError(null);
+                setForm({ mode: "add" });
+              }}
+              className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-md border border-slate-300 bg-surface px-3 py-2 text-sm font-medium text-slate-700 hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-brand sm:self-auto"
+            >
+              <PersonalIcon className="h-4 w-4" />
+              Add activity
+            </button>
+          )}
         </header>
 
+        {(form || personalError) && (
+          <div className="space-y-3 border-b border-slate-200 px-4 py-3">
+            {personalError && (
+              <p
+                role="alert"
+                className="rounded-md border border-danger-dark bg-danger-soft px-3 py-2 text-sm text-danger-dark"
+              >
+                {personalError}
+              </p>
+            )}
+            {form && (
+              <PersonalActivityForm
+                key={form.mode === "edit" ? form.activity.id : "new"}
+                dayLabel={selectedDayLabel}
+                date={selectedDay.date}
+                timeZone={form.mode === "edit" ? form.activity.timeZone : selectedDay.timeZone}
+                initial={form.mode === "edit" ? form.activity : undefined}
+                onSubmit={handleSave}
+                onCancel={() => setForm(null)}
+              />
+            )}
+          </div>
+        )}
+
         <ol aria-label={`Schedule for ${dayLabel(selectedDay.dayNumber)}`} className="px-2 py-2">
-          {isSelectedToday && nowHour < slots[0].hour && (
+          {isSelectedToday && slots.length > 0 && nowHour < slots[0].hour && (
             <li className="py-2 pl-16">
               <NowMarker label={nowLabel} />
             </li>
           )}
           {slots.map((slot) => {
+            const entries: SlotEntry[] = [
+              ...slot.activities.map((activity) => ({
+                kind: "plan" as const,
+                startsAt: activity.scheduledAt,
+                activity,
+              })),
+              ...slot.personal.map((activity) => ({
+                kind: "personal" as const,
+                startsAt: activity.startsAt,
+                activity,
+              })),
+            ].sort((first, second) => first.startsAt.localeCompare(second.startsAt));
             const showNowInSlot = isSelectedToday && slot.hour === nowHour;
             const nowIndex = showNowInSlot
-              ? slot.activities.findIndex(
-                  (activity) => new Date(activity.scheduledAt).getTime() > now.getTime(),
-                )
+              ? entries.findIndex((entry) => new Date(entry.startsAt).getTime() > now.getTime())
               : -1;
             return (
               <li
@@ -200,15 +309,28 @@ export function RecoveryCalendar({
                 <span className="pt-2 text-right text-xs font-medium tabular-nums text-slate-400">
                   {slot.hour.toString().padStart(2, "0")}:00
                 </span>
-                <div className={`space-y-2 py-2 ${slot.activities.length ? "" : "min-h-6"}`}>
-                  {slot.activities.map((activity, index) => (
-                    <React.Fragment key={activity.id}>
+                <div className={`space-y-2 py-2 ${entries.length ? "" : "min-h-6"}`}>
+                  {entries.map((entry, index) => (
+                    <React.Fragment key={`${entry.kind}-${entry.activity.id}`}>
                       {showNowInSlot && nowIndex === index && <NowMarker label={nowLabel} />}
-                      <CalendarEvent
-                        activity={activity}
-                        disabled={updatingActivityId === activity.id}
-                        onToggle={onToggle}
-                      />
+                      {entry.kind === "plan" ? (
+                        <CalendarEvent
+                          activity={entry.activity}
+                          disabled={updatingActivityId === entry.activity.id}
+                          onToggle={onToggle}
+                        />
+                      ) : (
+                        <PersonalEvent
+                          activity={entry.activity}
+                          planActivities={selectedDay.activities}
+                          disabled={!canEditPersonal || deletingId === entry.activity.id}
+                          onEdit={() => {
+                            setPersonalError(null);
+                            setForm({ mode: "edit", activity: entry.activity });
+                          }}
+                          onDelete={() => void handleDelete(entry.activity)}
+                        />
+                      )}
                     </React.Fragment>
                   ))}
                   {showNowInSlot && nowIndex === -1 && <NowMarker label={nowLabel} />}
@@ -216,7 +338,7 @@ export function RecoveryCalendar({
               </li>
             );
           })}
-          {isSelectedToday && nowHour > slots[slots.length - 1].hour && (
+          {isSelectedToday && slots.length > 0 && nowHour > slots[slots.length - 1].hour && (
             <li className="py-2 pl-16">
               <NowMarker label={nowLabel} />
             </li>

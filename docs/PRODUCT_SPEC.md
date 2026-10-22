@@ -43,6 +43,10 @@ features:
   provider schedule, and estimated and actual times separately, with delays,
   early times, cancellations, and diversions highlighted. Verified changes can
   be applied to the recovery plan, recalculating future guidance only.
+- Personal activities: users can add, edit, and delete their own activities
+  (e.g. meetings or dinners) with start and end times on any day of the plan
+  calendar. Overlaps with plan guidance are pointed out, and these activities
+  are kept when a plan is regenerated.
 - Round trips: flights are marked Outbound or Return. Each trip can have an
   arrival recovery plan and a back-home recovery plan built from the return
   flights; Flight Status, the trip page, and the Daily Dashboard show and
