@@ -12,7 +12,7 @@ describe("HomePage", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Plan your journey/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Organize your flights/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Organise your flights/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Ease into local time/i })).toBeInTheDocument();
     expect(screen.getByText(/live flight tracking .*not available/i)).toBeInTheDocument();
   });

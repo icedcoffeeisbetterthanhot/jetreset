@@ -1,12 +1,12 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "JetReset – Plan your trip and find your rhythm",
   description:
-    "Organize your trip across time zones, map your flights, and follow practical destination-time recovery guidance with JetReset.",
+    "Organise your trip across time zones, map your flights, and follow practical destination-time recovery guidance with JetReset.",
   icons: {
     icon: "/favicon.ico",
   },
@@ -62,7 +62,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <footer className="border-t border-slate-200 bg-surface-soft">
           <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-4 text-sm text-slate-500 md:flex-row md:items-center md:justify-between md:px-6">
             <p>&copy; {new Date().getFullYear()} JetReset. All rights reserved.</p>
-            <p>Time-aware trip planning and general recovery guidance. No live flight tracking.</p>
+            <p>Time-aware trip planning and general recovery guidance.</p>
           </div>
         </footer>
       </body>

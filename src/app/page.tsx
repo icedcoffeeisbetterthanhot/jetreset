@@ -32,7 +32,7 @@ export default function HomePage() {
           Make your next time-zone change a little easier.
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
-          Organize your trip, see your flights in local time, and get practical guidance for
+          Organise your trip, see your flights in local time, and get practical guidance for
           settling into your destination.
         </p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
