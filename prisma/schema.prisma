@@ -33,6 +33,9 @@ model Trip {
   flightSegments      FlightSegment[]
   recoveryPlans       RecoveryPlan[]
   personalActivities  PersonalActivity[]
+
+  @@index([userId, departureAt])
+  @@index([guestId, departureAt])
 }
 
 /// A user's own planned activity (e.g. a meeting) shown on the plan calendar.
@@ -52,9 +55,6 @@ model PersonalActivity {
   updatedAt DateTime @updatedAt
 
   @@index([tripId, startsAt])
-
-  @@index([userId, departureAt])
-  @@index([guestId, departureAt])
 }
 
 /// Which half of a round trip a flight or recovery plan belongs to.
