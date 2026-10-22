@@ -110,6 +110,32 @@ export async function listTrips() {
   });
 }
 
+/** Trips with the flight details shown on the trips overview, in departure order. */
+export async function listTripsWithFlights() {
+  return prisma.trip.findMany({
+    orderBy: { departureAt: "asc" },
+    include: {
+      flightSegments: {
+        orderBy: [{ scheduledDepartureAt: "asc" }, { id: "asc" }],
+        select: {
+          id: true,
+          leg: true,
+          airline: true,
+          flightNumber: true,
+          departureAirportCode: true,
+          arrivalAirportCode: true,
+          departureTimeZone: true,
+          arrivalTimeZone: true,
+          scheduledDepartureAt: true,
+          scheduledArrivalAt: true,
+        },
+      },
+    },
+  });
+}
+
+export type TripWithFlights = Awaited<ReturnType<typeof listTripsWithFlights>>[number];
+
 export async function getTripById(id: number) {
   validateTripId(id);
   return prisma.trip.findUnique({ where: { id } });

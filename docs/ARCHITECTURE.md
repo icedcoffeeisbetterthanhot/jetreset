@@ -171,6 +171,34 @@ overlapping flights and mismatched transfer airports.
   midnight after some of that day's activities have passed, kept and new
   activities on that day can carry different day numbers.
 
+## Round Trips (Outbound and Return Legs)
+
+A trip can hold both halves of a round trip. `FlightSegment.leg` and
+`RecoveryPlan.leg` use the `JourneyLeg` enum (`outbound`, the default, or
+`return`), and plans are unique per `(tripId, leg)`, so a trip has at most one
+arrival plan and one back-home plan. Shared helpers live in
+`src/lib/journeyLeg.ts`.
+
+- **Planning**: the outbound plan uses the trip's own times, or its outbound
+  flights when present. The back-home plan requires return flights and is
+  built from the first return departure to the last return arrival, so it
+  adjusts to home time. Return flights never affect the outbound plan, and
+  vice versa.
+- **Staleness and flight status**: each plan's itinerary hash, flight-status
+  signature, pending-change detection, blocking alerts, and
+  `applyFlightStatusToRecoveryPlan` consider only that leg's flights. APIs take
+  `leg` as a query parameter (`GET /api/trips/[id]/recovery?leg=`,
+  `POST /api/trips/[id]/recovery/flight-status?leg=`) or a body field (plan
+  generation, flight segments), defaulting to `outbound`.
+- **UI**: the flight editor and Flight Status page group flights by leg, with
+  totals, layovers, and warnings calculated within each leg so the stay is not
+  shown as a layover. The trip page shows an "Arrival recovery plan" and, once
+  return flights exist, a "Back-home recovery plan". The Daily Dashboard
+  defaults to the back-home plan once its route departure time has passed
+  (`?leg=` overrides) and offers a switch when both plans are available.
+- **Migration**: `20261022140000_add_journey_legs` adds the enum and columns
+  with an `outbound` default, so existing flights and plans are unchanged.
+
 ## Recovery Planning and Daily Dashboard
 
 `src/lib/recoveryPlan.ts` is a deterministic planner that takes trip times,

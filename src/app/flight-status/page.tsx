@@ -85,7 +85,6 @@ export default async function FlightStatusPage({ searchParams }: FlightStatusPag
             <FlightStatusPanel
               key={`${selectedTrip.id}-${panelKey}`}
               tripId={selectedTrip.id}
-              hasPlan={selectedTrip.hasPlan}
               initialStatus={flightStatus}
             />
           )}

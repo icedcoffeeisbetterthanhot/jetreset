@@ -1,18 +1,11 @@
-import { computeDurationMinutes, formatDuration } from "@lib/timezone";
-import { listTrips } from "@server/tripService";
+import { TripCard } from "@components/trips/TripCard";
+import { getTripTimeline } from "@lib/tripTimeline";
+import { listTripsWithFlights, type TripWithFlights } from "@server/tripService";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-function formatTripTime(date: Date, timeZone: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone,
-  }).format(date);
-}
-
-function TripList({ trips }: { trips: Awaited<ReturnType<typeof listTrips>> }) {
+function TripList({ trips, now }: { trips: TripWithFlights[]; now: Date }) {
   if (trips.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-slate-300 bg-surface p-6 text-sm text-slate-600">
@@ -22,67 +15,34 @@ function TripList({ trips }: { trips: Awaited<ReturnType<typeof listTrips>> }) {
   }
 
   return (
-    <ul className="space-y-3">
+    <ul className="space-y-4">
       {trips.map((trip) => (
-        <li
-          key={trip.id}
-          className="rounded-lg border border-slate-200 bg-surface p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
-        >
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-surface-strong">{trip.name}</p>
-            <p className="text-xs text-slate-600">
-              {trip.origin} ({trip.originTimeZone}) → {trip.destination} ({trip.destinationTimeZone}
-              )
-            </p>
-            <p className="text-xs text-slate-500">
-              Depart: {formatTripTime(trip.departureAt, trip.originTimeZone)} ({trip.originTimeZone}
-              )
-            </p>
-            <p className="text-xs text-slate-500">
-              Arrive: {formatTripTime(trip.arrivalAt, trip.destinationTimeZone)} (
-              {trip.destinationTimeZone})
-            </p>
-            <p className="text-xs text-slate-500">
-              Duration: {formatDuration(computeDurationMinutes(trip.departureAt, trip.arrivalAt))}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 text-xs">
-            <Link
-              href={`/trips/${trip.id}`}
-              className="inline-flex items-center justify-center rounded-md border border-slate-200 bg-surface px-3 py-2 text-xs font-medium text-slate-700 hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-brand"
-            >
-              View details
-            </Link>
-            <Link
-              href={`/trips/${trip.id}/edit`}
-              className="inline-flex items-center justify-center rounded-md border border-slate-200 bg-surface px-3 py-2 text-xs font-medium text-slate-700 hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-brand"
-            >
-              Edit
-            </Link>
-          </div>
-        </li>
+        <TripCard key={trip.id} trip={trip} now={now} />
       ))}
     </ul>
   );
 }
 
 export default async function TripsPage() {
-  const trips = await listTrips();
-  const now = Date.now();
+  const trips = await listTripsWithFlights();
+  const now = new Date();
+  // A trip stays current until its return flights land, not just until the outbound arrival.
+  const timelines = new Map(trips.map((trip) => [trip.id, getTripTimeline(trip, now)]));
+  const startOf = (trip: TripWithFlights) => timelines.get(trip.id)!.startsAt.getTime();
   const upcomingTrips = trips
-    .filter((trip) => trip.arrivalAt.getTime() >= now)
-    .sort((a, b) => a.departureAt.getTime() - b.departureAt.getTime());
+    .filter((trip) => timelines.get(trip.id)!.status !== "past")
+    .sort((a, b) => startOf(a) - startOf(b));
   const pastTrips = trips
-    .filter((trip) => trip.arrivalAt.getTime() < now)
-    .sort((a, b) => b.departureAt.getTime() - a.departureAt.getTime());
+    .filter((trip) => timelines.get(trip.id)!.status === "past")
+    .sort((a, b) => startOf(b) - startOf(a));
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 md:px-6 md:py-16">
       <header className="mb-8 space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight text-surface-strong">Trips</h1>
         <p className="text-sm text-slate-600 max-w-xl">
-          Create and manage your upcoming and past journeys. JetReset uses these trips to understand
-          your travel pattern and support future recovery guidance.
+          Your journeys at a glance: outbound and return flights in local airport times. Open a trip
+          to add flights, check their status, or plan your recovery.
         </p>
         <div className="mt-4">
           <Link
@@ -105,13 +65,13 @@ export default async function TripsPage() {
             <h2 id="upcoming-trips-heading" className="text-lg font-semibold text-surface-strong">
               Upcoming and in progress
             </h2>
-            <TripList trips={upcomingTrips} />
+            <TripList trips={upcomingTrips} now={now} />
           </section>
           <section aria-labelledby="past-trips-heading" className="space-y-3">
             <h2 id="past-trips-heading" className="text-lg font-semibold text-surface-strong">
               Past trips
             </h2>
-            <TripList trips={pastTrips} />
+            <TripList trips={pastTrips} now={now} />
           </section>
         </div>
       )}

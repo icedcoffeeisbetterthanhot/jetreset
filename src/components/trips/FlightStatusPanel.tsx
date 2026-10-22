@@ -9,6 +9,7 @@ import {
   STATUS_CHECK_DAYS_BEFORE_DEPARTURE,
   type FlightStatusCode,
 } from "@lib/flightStatus";
+import { JOURNEY_LEG_LABELS, RECOVERY_PLAN_LABELS, type JourneyLeg } from "@lib/journeyLeg";
 import { readResponseError } from "@components/trips/recoveryApi";
 
 export interface FlightStatusSnapshotView {
@@ -28,6 +29,7 @@ export interface FlightStatusSnapshotView {
 
 export interface SegmentFlightStatusView {
   segmentId: number;
+  leg: JourneyLeg;
   flightNumber: string | null;
   departureAirportCode: string;
   arrivalAirportCode: string;
@@ -46,10 +48,16 @@ export interface SegmentFlightStatusView {
   error: string | null;
 }
 
-export interface TripFlightStatusView {
-  configured: boolean;
+export interface LegFlightStatusView {
+  leg: JourneyLeg;
+  hasPlan: boolean;
   recoveryPlanUpdatePending: boolean;
   blockingAlerts: string[];
+}
+
+export interface TripFlightStatusView {
+  configured: boolean;
+  legs: LegFlightStatusView[];
   segments: SegmentFlightStatusView[];
 }
 
@@ -88,24 +96,21 @@ function isTripFlightStatusView(value: unknown): value is TripFlightStatusView {
   const result = value as Record<string, unknown>;
   return (
     typeof result.configured === "boolean" &&
-    typeof result.recoveryPlanUpdatePending === "boolean" &&
-    Array.isArray(result.blockingAlerts) &&
+    Array.isArray(result.legs) &&
     Array.isArray(result.segments)
   );
 }
 
 export function FlightStatusPanel({
   tripId,
-  hasPlan,
   initialStatus,
 }: {
   tripId: number;
-  hasPlan: boolean;
   initialStatus: TripFlightStatusView;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState(initialStatus);
-  const [busy, setBusy] = useState<"check" | "apply" | null>(null);
+  const [busy, setBusy] = useState<"check" | JourneyLeg | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -137,12 +142,12 @@ export function FlightStatusPanel({
     }
   }
 
-  async function handleApply() {
-    setBusy("apply");
+  async function handleApply(leg: JourneyLeg) {
+    setBusy(leg);
     setError(null);
     setNotice(null);
     try {
-      const response = await fetch(`/api/trips/${tripId}/recovery/flight-status`, {
+      const response = await fetch(`/api/trips/${tripId}/recovery/flight-status?leg=${leg}`, {
         method: "POST",
       });
       if (!response.ok) {
@@ -154,7 +159,9 @@ export function FlightStatusPanel({
         );
       }
       await loadStatus("GET");
-      setNotice("Recovery plan updated. Earlier and completed activities were kept.");
+      setNotice(
+        `${RECOVERY_PLAN_LABELS[leg]} updated. Earlier and completed activities were kept.`,
+      );
       router.refresh();
     } catch (applyError) {
       setError(
@@ -194,50 +201,6 @@ export function FlightStatusPanel({
         )}
       </header>
 
-      {status.blockingAlerts.length > 0 && (
-        <div
-          role="alert"
-          className="rounded-md border border-danger-dark bg-danger-soft px-4 py-3 text-sm text-danger-dark"
-        >
-          <p className="font-medium">Your itinerary needs attention</p>
-          <ul className="mt-1 list-inside list-disc">
-            {status.blockingAlerts.map((alert) => (
-              <li key={alert}>{alert}</li>
-            ))}
-          </ul>
-          <p className="mt-2">
-            JetReset will not adjust your plan automatically.{" "}
-            <Link
-              href={`/trips/${tripId}`}
-              className="font-medium underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-brand"
-            >
-              Update your flight segments
-            </Link>{" "}
-            with your actual travel, then regenerate the recovery plan.
-          </p>
-        </div>
-      )}
-
-      {hasPlan && status.recoveryPlanUpdatePending && status.blockingAlerts.length === 0 && (
-        <div
-          role="status"
-          className="flex flex-col gap-3 rounded-md border border-warning-dark bg-warning-soft px-4 py-3 text-sm text-warning-dark sm:flex-row sm:items-center sm:justify-between"
-        >
-          <p>
-            Verified flight-status changes affect your recovery plan. Updating recalculates future
-            guidance only; earlier and completed activities are kept.
-          </p>
-          <button
-            type="button"
-            onClick={() => void handleApply()}
-            disabled={busy !== null}
-            className="shrink-0 rounded-md border border-warning-dark bg-surface px-3 py-2 font-medium text-warning-dark hover:bg-warning-soft focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {busy === "apply" ? "Updating…" : "Update recovery plan"}
-          </button>
-        </div>
-      )}
-
       {notice && (
         <p
           role="status"
@@ -255,11 +218,78 @@ export function FlightStatusPanel({
         </p>
       )}
 
-      <ol className="space-y-3">
-        {status.segments.map((segment) => (
-          <SegmentStatusCard key={segment.segmentId} segment={segment} />
-        ))}
-      </ol>
+      {status.legs.map((legStatus) => {
+        const legSegments = status.segments.filter((segment) => segment.leg === legStatus.leg);
+        const first = legSegments[0];
+        const last = legSegments[legSegments.length - 1];
+        const headingId = `flight-status-${legStatus.leg}-heading`;
+        const legLabel = JOURNEY_LEG_LABELS[legStatus.leg];
+        const planLabel = RECOVERY_PLAN_LABELS[legStatus.leg];
+        return (
+          <section key={legStatus.leg} aria-labelledby={headingId} className="space-y-3">
+            <h3 id={headingId} className="text-base font-semibold text-surface-strong">
+              {legLabel}
+              {first && last && (
+                <span className="ml-2 text-sm font-normal text-slate-500">
+                  {first.departureAirportCode} → {last.arrivalAirportCode}
+                </span>
+              )}
+            </h3>
+
+            {legStatus.blockingAlerts.length > 0 && (
+              <div
+                role="alert"
+                className="rounded-md border border-danger-dark bg-danger-soft px-4 py-3 text-sm text-danger-dark"
+              >
+                <p className="font-medium">Your {legLabel.toLowerCase()} flights need attention</p>
+                <ul className="mt-1 list-inside list-disc">
+                  {legStatus.blockingAlerts.map((alert) => (
+                    <li key={alert}>{alert}</li>
+                  ))}
+                </ul>
+                <p className="mt-2">
+                  JetReset will not adjust your plan automatically.{" "}
+                  <Link
+                    href={`/trips/${tripId}`}
+                    className="font-medium underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-brand"
+                  >
+                    Update your flight segments
+                  </Link>{" "}
+                  with your actual travel, then regenerate the recovery plan.
+                </p>
+              </div>
+            )}
+
+            {legStatus.hasPlan &&
+              legStatus.recoveryPlanUpdatePending &&
+              legStatus.blockingAlerts.length === 0 && (
+                <div
+                  role="status"
+                  className="flex flex-col gap-3 rounded-md border border-warning-dark bg-warning-soft px-4 py-3 text-sm text-warning-dark sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <p>
+                    Verified flight-status changes affect your {planLabel.toLowerCase()}. Updating
+                    recalculates future guidance only; earlier and completed activities are kept.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void handleApply(legStatus.leg)}
+                    disabled={busy !== null}
+                    className="shrink-0 rounded-md border border-warning-dark bg-surface px-3 py-2 font-medium text-warning-dark hover:bg-warning-soft focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {busy === legStatus.leg ? "Updating…" : `Update ${planLabel.toLowerCase()}`}
+                  </button>
+                </div>
+              )}
+
+            <ol className="space-y-3">
+              {legSegments.map((segment) => (
+                <SegmentStatusCard key={segment.segmentId} segment={segment} />
+              ))}
+            </ol>
+          </section>
+        );
+      })}
     </section>
   );
 }

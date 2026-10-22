@@ -41,6 +41,10 @@ features:
   provider schedule, and estimated and actual times separately, with delays,
   early times, cancellations, and diversions highlighted. Verified changes can
   be applied to the recovery plan, recalculating future guidance only.
+- Round trips: flights are marked Outbound or Return. Each trip can have an
+  arrival recovery plan and a back-home recovery plan built from the return
+  flights; Flight Status, the trip page, and the Daily Dashboard show and
+  update each leg separately.
 
 Authentication and ownership enforcement are not yet available. Trip records
 are not protected multi-user data; use this implementation only for trusted

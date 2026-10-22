@@ -26,6 +26,8 @@ interface DailyDashboardProps {
   flightStatusChangePending?: boolean;
   /** Cancellations or diversions that require an itinerary update. */
   flightStatusAlerts?: string[];
+  /** Which plan this is, e.g. "Back-home recovery plan". */
+  planLabel?: string;
   /** Server render time, so the first client render matches the server output. */
   initialNow: string;
 }
@@ -56,6 +58,7 @@ export function DailyDashboard({
   planIsOutOfDate,
   flightStatusChangePending = false,
   flightStatusAlerts = [],
+  planLabel,
   initialNow,
 }: DailyDashboardProps) {
   const [plan, setPlan] = useState(initialPlan);
@@ -190,6 +193,7 @@ export function DailyDashboard({
       <section aria-labelledby="dashboard-overview-heading" className="space-y-4">
         <div className="flex flex-col gap-1">
           <p className="text-xs font-medium uppercase tracking-wide text-brand-dark">
+            {planLabel ? `${planLabel} · ` : ""}
             {state.stageLabel}
           </p>
           <h2 id="dashboard-overview-heading" className="text-lg font-semibold text-surface-strong">

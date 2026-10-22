@@ -28,13 +28,20 @@ model Trip {
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
   flightSegments      FlightSegment[]
-  recoveryPlan        RecoveryPlan?
+  recoveryPlans       RecoveryPlan[]
+}
+
+/// Which half of a round trip a flight or recovery plan belongs to.
+enum JourneyLeg {
+  outbound
+  return
 }
 
 model FlightSegment {
   id                   Int                   @id @default(autoincrement())
   tripId               Int
   trip                 Trip                  @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  leg                  JourneyLeg            @default(outbound)
   airline              String?               @db.VarChar(120)
   flightNumber         String?               @db.VarChar(32)
   departureAirportCode String                @db.VarChar(3)
@@ -53,7 +60,7 @@ model FlightSegment {
   updatedAt            DateTime              @updatedAt
   statusSnapshot       FlightStatusSnapshot?
 
-  @@index([tripId, scheduledDepartureAt])
+  @@index([tripId, leg, scheduledDepartureAt])
 }
 
 enum FlightStatusLookupResult {
@@ -113,8 +120,10 @@ enum RecoveryDirection {
 
 model RecoveryPlan {
   id                        Int                @id @default(autoincrement())
-  tripId                    Int                @unique
+  tripId                    Int
   trip                      Trip               @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  /// Outbound plans adjust to the destination; return plans adjust back home.
+  leg                       JourneyLeg         @default(outbound)
   sourceTripUpdatedAt       DateTime
   sourceItineraryHash       String             @db.VarChar(64)
   destinationTimeZone       String             @db.VarChar(100)
@@ -138,6 +147,8 @@ model RecoveryPlan {
   generatedAt               DateTime           @default(now())
   updatedAt                 DateTime           @updatedAt
   activities                RecoveryActivity[]
+
+  @@unique([tripId, leg])
 }
 
 model RecoveryActivity {

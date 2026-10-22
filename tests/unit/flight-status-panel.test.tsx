@@ -2,6 +2,7 @@ import React from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import {
   FlightStatusPanel,
+  type LegFlightStatusView,
   type SegmentFlightStatusView,
   type TripFlightStatusView,
 } from "@components/trips/FlightStatusPanel";
@@ -11,6 +12,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
 const segment: SegmentFlightStatusView = {
   segmentId: 7,
+  leg: "outbound",
   flightNumber: "BA117",
   departureAirportCode: "LHR",
   arrivalAirportCode: "JFK",
@@ -43,10 +45,32 @@ const delayedSegment: SegmentFlightStatusView = {
   changes: ["Departure 1 h 35 min later than planned (estimated Thu 22 Oct, 14:05)"],
 };
 
+const returnSegment: SegmentFlightStatusView = {
+  ...segment,
+  segmentId: 9,
+  leg: "return",
+  flightNumber: "BA178",
+  departureAirportCode: "JFK",
+  arrivalAirportCode: "LHR",
+  departureTimeZone: "America/New_York",
+  arrivalTimeZone: "Europe/London",
+  scheduledDepartureAt: "2026-10-29T22:00:00.000Z",
+  scheduledArrivalAt: "2026-10-30T09:00:00.000Z",
+};
+
+function leg(overrides: Partial<LegFlightStatusView> = {}): LegFlightStatusView {
+  return {
+    leg: "outbound",
+    hasPlan: true,
+    recoveryPlanUpdatePending: false,
+    blockingAlerts: [],
+    ...overrides,
+  };
+}
+
 const configured: TripFlightStatusView = {
   configured: true,
-  recoveryPlanUpdatePending: false,
-  blockingAlerts: [],
+  legs: [leg()],
   segments: [segment],
 };
 
@@ -65,9 +89,7 @@ describe("FlightStatusPanel", () => {
   });
 
   it("states clearly when live status is not configured", () => {
-    render(
-      <FlightStatusPanel tripId={4} hasPlan initialStatus={{ ...configured, configured: false }} />,
-    );
+    render(<FlightStatusPanel tripId={4} initialStatus={{ ...configured, configured: false }} />);
 
     expect(screen.getByText(/Live flight status isn't configured/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Check flight status" })).not.toBeInTheDocument();
@@ -78,12 +100,12 @@ describe("FlightStatusPanel", () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({
         ...configured,
-        recoveryPlanUpdatePending: true,
+        legs: [leg({ recoveryPlanUpdatePending: true })],
         segments: [delayedSegment],
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
-    render(<FlightStatusPanel tripId={4} hasPlan initialStatus={configured} />);
+    render(<FlightStatusPanel tripId={4} initialStatus={configured} />);
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Check flight status" }));
@@ -101,55 +123,93 @@ describe("FlightStatusPanel", () => {
         .map((cell) => cell.textContent),
     ).toEqual(["22 Oct, 12:30", "22 Oct, 12:30", "22 Oct, 14:05", "—"]);
     expect(screen.getByText(/Departure 1 h 35 min later than planned/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Update recovery plan" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Update arrival recovery plan" }),
+    ).toBeInTheDocument();
     expect(refresh).toHaveBeenCalled();
   });
 
-  it("applies verified changes to the recovery plan", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ plan: {} }))
-      .mockResolvedValueOnce(jsonResponse({ ...configured, segments: [delayedSegment] }));
-    vi.stubGlobal("fetch", fetchMock);
+  it("shows outbound and return flights in separate sections", () => {
     render(
       <FlightStatusPanel
         tripId={4}
-        hasPlan
         initialStatus={{
           ...configured,
-          recoveryPlanUpdatePending: true,
-          segments: [delayedSegment],
+          legs: [leg(), leg({ leg: "return", hasPlan: false })],
+          segments: [segment, returnSegment],
         }}
       />,
     );
 
+    const outbound = screen.getByRole("region", { name: /^Outbound/ });
+    const inbound = screen.getByRole("region", { name: /^Return/ });
+    expect(outbound).toHaveTextContent("LHR → JFK");
+    expect(outbound).toHaveTextContent("BA117");
+    expect(inbound).toHaveTextContent("JFK → LHR");
+    expect(inbound).toHaveTextContent("BA178");
+    expect(inbound).not.toHaveTextContent("BA117");
+  });
+
+  it("applies verified return-flight changes to the back-home plan only", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ plan: {} }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...configured,
+          legs: [leg(), leg({ leg: "return" })],
+          segments: [segment, returnSegment],
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <FlightStatusPanel
+        tripId={4}
+        initialStatus={{
+          ...configured,
+          legs: [leg(), leg({ leg: "return", recoveryPlanUpdatePending: true })],
+          segments: [segment, returnSegment],
+        }}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Update arrival recovery plan" }),
+    ).not.toBeInTheDocument();
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Update recovery plan" }));
+      fireEvent.click(screen.getByRole("button", { name: "Update back-home recovery plan" }));
       await flush();
     });
 
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/trips/4/recovery/flight-status", {
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/trips/4/recovery/flight-status?leg=return", {
       method: "POST",
     });
-    expect(screen.getByText(/Recovery plan updated/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Update recovery plan" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Back-home recovery plan updated/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Update back-home recovery plan" }),
+    ).not.toBeInTheDocument();
   });
 
   it("blocks automatic plan changes for cancellations", () => {
     render(
       <FlightStatusPanel
         tripId={4}
-        hasPlan
         initialStatus={{
           ...configured,
-          recoveryPlanUpdatePending: true,
-          blockingAlerts: ["BA117 LHR→JFK: Cancelled by the operator"],
+          legs: [
+            leg({
+              recoveryPlanUpdatePending: true,
+              blockingAlerts: ["BA117 LHR→JFK: Cancelled by the operator"],
+            }),
+          ],
         }}
       />,
     );
 
     expect(screen.getByRole("alert")).toHaveTextContent("Cancelled by the operator");
-    expect(screen.queryByRole("button", { name: "Update recovery plan" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Update arrival recovery plan" }),
+    ).not.toBeInTheDocument();
   });
 
   it("reports provider errors and ineligible segments", async () => {
@@ -162,9 +222,9 @@ describe("FlightStatusPanel", () => {
     render(
       <FlightStatusPanel
         tripId={4}
-        hasPlan={false}
         initialStatus={{
           ...configured,
+          legs: [leg({ hasPlan: false })],
           segments: [
             segment,
             { ...segment, segmentId: 8, eligibility: { eligible: false, reason: "too_early" } },

@@ -9,9 +9,12 @@ import {
   type RecoveryPlanView,
 } from "@lib/recoveryDashboard";
 import { readResponseError, updateActivityCompletion } from "@components/trips/recoveryApi";
+import { RECOVERY_PLAN_LABELS, type JourneyLeg } from "@lib/journeyLeg";
 
 interface RecoveryDashboardProps {
   tripId: number;
+  /** Outbound plans adjust to the destination; return plans adjust back to home time. */
+  leg?: JourneyLeg;
   departureAt: string;
   arrivalAt: string;
   destinationTimeZone: string;
@@ -40,6 +43,7 @@ function isRecoveryPlan(value: unknown): value is RecoveryPlanView {
 
 export function RecoveryDashboard({
   tripId,
+  leg = "outbound",
   departureAt,
   arrivalAt,
   destinationTimeZone,
@@ -82,7 +86,7 @@ export function RecoveryDashboard({
       const response = await fetch(`/api/trips/${tripId}/recovery`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetBedtime, targetWakeTime, avoidCaffeine }),
+        body: JSON.stringify({ leg, targetBedtime, targetWakeTime, avoidCaffeine }),
       });
       if (!response.ok) {
         throw new Error(await readResponseError(response, "Unable to generate a recovery plan."));
@@ -142,12 +146,18 @@ export function RecoveryDashboard({
   }
 
   return (
-    <section aria-labelledby="recovery-dashboard-heading" className="mt-10 space-y-5">
+    <section aria-labelledby={`recovery-dashboard-${leg}-heading`} className="mt-10 space-y-5">
       <header className="space-y-1">
-        <h2 id="recovery-dashboard-heading" className="text-xl font-semibold text-surface-strong">
-          Recovery plan
+        <h2
+          id={`recovery-dashboard-${leg}-heading`}
+          className="text-xl font-semibold text-surface-strong"
+        >
+          {RECOVERY_PLAN_LABELS[leg]}
         </h2>
         <p className="text-sm text-slate-600">
+          {leg === "return"
+            ? "Guidance for settling back into home time after your return flights. "
+            : ""}
           General, flexible travel-routine guidance based on this trip. It is not medical advice or
           a clinical circadian model.
         </p>
@@ -157,8 +167,9 @@ export function RecoveryDashboard({
         {!plan ? (
           <div className="space-y-4">
             <p className="text-sm text-slate-600">
-              Generate a destination-local schedule for sleep, meals, daylight, hydration, gentle
-              movement, and optional caffeine guidance.
+              {leg === "return"
+                ? "Generate a home-time schedule for after your return flights, with sleep, meals, daylight, hydration, gentle movement, and optional caffeine guidance."
+                : "Generate a destination-local schedule for sleep, meals, daylight, hydration, gentle movement, and optional caffeine guidance."}
             </p>
             <PreferencesForm
               targetBedtime={targetBedtime}
@@ -169,7 +180,14 @@ export function RecoveryDashboard({
               onWakeTimeChange={setTargetWakeTime}
               onAvoidCaffeineChange={setAvoidCaffeine}
               onSubmit={handleGenerate}
-              submitLabel={saving ? "Generating…" : "Generate recovery plan"}
+              idPrefix={`recovery-${leg}`}
+              submitLabel={
+                saving
+                  ? "Generating…"
+                  : leg === "return"
+                    ? "Generate back-home plan"
+                    : "Generate recovery plan"
+              }
             />
           </div>
         ) : (
@@ -350,6 +368,7 @@ export function RecoveryDashboard({
                   onWakeTimeChange={setTargetWakeTime}
                   onAvoidCaffeineChange={setAvoidCaffeine}
                   onSubmit={handleGenerate}
+                  idPrefix={`recovery-${leg}`}
                   submitLabel={saving ? "Regenerating…" : "Regenerate plan"}
                 />
               </div>
@@ -379,6 +398,7 @@ function PreferencesForm({
   onAvoidCaffeineChange,
   onSubmit,
   submitLabel,
+  idPrefix,
 }: {
   targetBedtime: string;
   targetWakeTime: string;
@@ -389,16 +409,20 @@ function PreferencesForm({
   onAvoidCaffeineChange: (value: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   submitLabel: string;
+  idPrefix: string;
 }) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1">
-          <label htmlFor="recovery-wake-time" className="text-sm font-medium text-surface-strong">
+          <label
+            htmlFor={`${idPrefix}-wake-time`}
+            className="text-sm font-medium text-surface-strong"
+          >
             Preferred wake-time target (05:00–11:59)
           </label>
           <input
-            id="recovery-wake-time"
+            id={`${idPrefix}-wake-time`}
             type="time"
             min="05:00"
             max="11:59"
@@ -409,11 +433,14 @@ function PreferencesForm({
           />
         </div>
         <div className="space-y-1">
-          <label htmlFor="recovery-bedtime" className="text-sm font-medium text-surface-strong">
+          <label
+            htmlFor={`${idPrefix}-bedtime`}
+            className="text-sm font-medium text-surface-strong"
+          >
             Preferred bedtime target (18:00–23:59)
           </label>
           <input
-            id="recovery-bedtime"
+            id={`${idPrefix}-bedtime`}
             type="time"
             min="18:00"
             max="23:59"

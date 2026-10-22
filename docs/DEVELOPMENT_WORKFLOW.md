@@ -71,6 +71,16 @@ This document describes how to set up the project, run checks, and collaborate v
    temporary shadow database. Do not use `--name` just to apply existing
    migrations.
 
+   Never pass the development `DATABASE_URL` as `--shadow-database-url` (for
+   example to `prisma migrate diff`): Prisma resets the shadow database, which
+   erases all data in it. To draft migration SQL without any database, diff two
+   schema files instead:
+
+   ```powershell
+   git show HEAD:prisma/schema.prisma > $env:TEMP\schema.head.prisma
+   npx prisma migrate diff --from-schema-datamodel $env:TEMP\schema.head.prisma --to-schema-datamodel prisma/schema.prisma --script
+   ```
+
    Refresh the bundled airport directory when needed with
    `npm run airports:update`. This downloads the scheduled-service airport
    dataset from OurAirports and derives airport time zones from coordinates.

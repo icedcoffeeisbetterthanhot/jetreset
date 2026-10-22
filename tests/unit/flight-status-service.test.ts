@@ -1,5 +1,6 @@
 import {
   PROVIDER_CALLS_PER_HOUR,
+  getTripFlightStatuses,
   refreshTripFlightStatuses,
   resetProviderCallBudget,
   summarizeFlightStatus,
@@ -29,6 +30,7 @@ const updatedAt = new Date("2026-10-01T09:00:00.000Z");
 function segment(overrides: Partial<SegmentWithSnapshot> = {}): SegmentWithSnapshot {
   return {
     id: 7,
+    leg: "outbound",
     flightNumber: "BA 117",
     departureAirportCode: "LHR",
     arrivalAirportCode: "JFK",
@@ -72,7 +74,11 @@ function mockProvider(
 }
 
 function tripWith(segments: SegmentWithSnapshot[], flightStatusSignature: string | null = null) {
-  return { id: 5, flightSegments: segments, recoveryPlan: { flightStatusSignature } };
+  return {
+    id: 5,
+    flightSegments: segments,
+    recoveryPlans: [{ leg: "outbound" as const, flightStatusSignature }],
+  };
 }
 
 describe("flight status service", () => {
@@ -125,7 +131,9 @@ describe("flight status service", () => {
       "Departure 1 h 35 min later than planned (estimated Thu 22 Oct, 14:05)",
       "Arrival 1 h 20 min later than planned (estimated Thu 22 Oct, 16:50)",
     ]);
-    expect(view.recoveryPlanUpdatePending).toBe(true);
+    expect(view.legs).toEqual([
+      { leg: "outbound", hasPlan: true, recoveryPlanUpdatePending: true, blockingAlerts: [] },
+    ]);
   });
 
   it("reuses a recent status instead of calling the provider", async () => {
@@ -217,7 +225,7 @@ describe("flight status service", () => {
       actualArrivalAt: null,
     });
     expect(view.segments[0].changes).toEqual([]);
-    expect(view.recoveryPlanUpdatePending).toBe(false);
+    expect(view.legs[0].recoveryPlanUpdatePending).toBe(false);
   });
 
   it("caps provider calls per hour", async () => {
@@ -233,6 +241,60 @@ describe("flight status service", () => {
     expect(view.segments[PROVIDER_CALLS_PER_HOUR].error).toBe(
       "Status check limit reached. Try again later.",
     );
+  });
+});
+
+describe("flight status by journey leg", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetProviderCallBudget();
+  });
+
+  it("reports pending changes only for the leg whose flights changed", async () => {
+    const returnFlight = segment({
+      id: 8,
+      leg: "return",
+      flightNumber: "BA 178",
+      departureAirportCode: "JFK",
+      arrivalAirportCode: "LHR",
+      departureTimeZone: "America/New_York",
+      arrivalTimeZone: "Europe/London",
+      scheduledDepartureAt: new Date("2026-10-22T11:30:00.000Z"),
+      scheduledArrivalAt: new Date("2026-10-22T19:30:00.000Z"),
+      statusSnapshot: storedSnapshot(now),
+    });
+    mocks.tripFindUnique.mockResolvedValue({
+      id: 5,
+      flightSegments: [segment(), returnFlight],
+      recoveryPlans: [
+        { leg: "outbound", flightStatusSignature: null },
+        { leg: "return", flightStatusSignature: null },
+      ],
+    });
+
+    const view = await getTripFlightStatuses(5, now);
+
+    expect(
+      view.legs.map(({ leg, recoveryPlanUpdatePending }) => [leg, recoveryPlanUpdatePending]),
+    ).toEqual([
+      ["outbound", false],
+      ["return", true],
+    ]);
+    expect(view.segments.map((item) => item.leg)).toEqual(["outbound", "return"]);
+  });
+
+  it("lists only legs that have flights and notes missing plans", async () => {
+    mocks.tripFindUnique.mockResolvedValue({
+      id: 5,
+      flightSegments: [segment({ leg: "return" })],
+      recoveryPlans: [{ leg: "outbound", flightStatusSignature: null }],
+    });
+
+    const view = await getTripFlightStatuses(5, now);
+
+    expect(view.legs).toEqual([
+      { leg: "return", hasPlan: false, recoveryPlanUpdatePending: false, blockingAlerts: [] },
+    ]);
   });
 });
 

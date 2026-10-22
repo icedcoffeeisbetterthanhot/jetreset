@@ -4,11 +4,13 @@ import React, { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AirportSearchSelect } from "@components/trips/AirportSearchSelect";
 import { calculateItinerary, getTimeZoneChangeMinutes } from "@lib/itinerary";
+import { JOURNEY_LEGS, JOURNEY_LEG_LABELS, type JourneyLeg } from "@lib/journeyLeg";
 import { formatDuration, toLocalDateTime } from "@lib/timezone";
 import type { Airport } from "@server/airportService";
 
 interface FlightSegment {
   id: number;
+  leg: JourneyLeg;
   airline: string | null;
   flightNumber: string | null;
   departureAirportCode: string;
@@ -26,6 +28,7 @@ interface FlightSegment {
 }
 
 interface FlightFormState {
+  leg: JourneyLeg;
   airline: string;
   flightNumber: string;
   departureAirport: Airport | null;
@@ -42,6 +45,7 @@ interface FlightPlannerProps {
 }
 
 const emptyForm: FlightFormState = {
+  leg: "outbound",
   airline: "",
   flightNumber: "",
   departureAirport: null,
@@ -67,6 +71,7 @@ function isFlightSegment(value: unknown): value is FlightSegment {
   const isOptionalText = (field: unknown) => typeof field === "string" || field === null;
   return (
     typeof segment.id === "number" &&
+    JOURNEY_LEGS.includes(segment.leg as JourneyLeg) &&
     isOptionalText(segment.airline) &&
     isOptionalText(segment.flightNumber) &&
     isText(segment.departureAirportCode) &&
@@ -129,12 +134,16 @@ export function FlightPlanner({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const itinerary = calculateItinerary(segments);
+  const legRoutes: Record<JourneyLeg, string> = {
+    outbound: `${origin} → ${destination}`,
+    return: `${destination} → ${origin}`,
+  };
 
   function startEditing(segment: FlightSegment) {
     setEditingId(segment.id);
     setError(null);
     setForm({
+      leg: segment.leg,
       airline: segment.airline ?? "",
       flightNumber: segment.flightNumber ?? "",
       departureAirport: storedAirport(
@@ -182,6 +191,7 @@ export function FlightPlanner({
         method: editingId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          leg: form.leg,
           airline: form.airline,
           flightNumber: form.flightNumber,
           departureAirportCode: form.departureAirport.code,
@@ -243,147 +253,31 @@ export function FlightPlanner({
           Flight itinerary
         </h2>
         <p className="text-sm text-slate-600">
-          Search scheduled-service airports and add flights in their local airport times.
+          Search scheduled-service airports and add flights in their local airport times. Mark your
+          journey home as Return to get a separate back-home recovery plan.
         </p>
       </header>
 
-      {itinerary.segments.length === 0 ? (
+      {segments.length === 0 ? (
         <p className="rounded-lg border border-dashed border-slate-300 bg-surface p-5 text-sm text-slate-600">
           No flights added yet. Add a flight segment to plan a direct or connecting journey.
         </p>
       ) : (
-        <>
-          <dl className="grid gap-3 rounded-lg border border-slate-200 bg-surface p-4 sm:grid-cols-3">
-            <div>
-              <dt className="text-xs font-medium text-slate-500">Total flight time</dt>
-              <dd className="text-sm font-semibold text-surface-strong">
-                {formatDuration(Math.round(itinerary.flightMinutes))}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium text-slate-500">Elapsed journey</dt>
-              <dd className="text-sm font-semibold text-surface-strong">
-                {formatDuration(Math.round(itinerary.elapsedMinutes))}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium text-slate-500">Connecting layovers</dt>
-              <dd className="text-sm font-semibold text-surface-strong">
-                {formatDuration(Math.round(itinerary.layoverMinutes))}
-              </dd>
-            </div>
-          </dl>
-          {itinerary.warnings.length > 0 && (
-            <div
-              className="rounded-md border border-warning-dark bg-warning-soft px-4 py-3 text-sm text-warning-dark"
-              role="status"
-            >
-              <p className="font-medium">Review this itinerary</p>
-              <ul className="mt-1 list-inside list-disc">
-                {itinerary.warnings.map((warning) => (
-                  <li key={warning}>{warning}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <ol className="space-y-3">
-            {itinerary.segments.map((segment, index) => {
-              const timezoneChange = getTimeZoneChangeMinutes(segment);
-              const nextSegment = itinerary.segments[index + 1];
-              const layoverMinutes = nextSegment
-                ? (new Date(nextSegment.scheduledDepartureAt).getTime() -
-                    new Date(segment.scheduledArrivalAt).getTime()) /
-                  60000
-                : null;
-              const validConnection =
-                nextSegment &&
-                segment.arrivalAirportCode === nextSegment.departureAirportCode &&
-                layoverMinutes !== null &&
-                layoverMinutes >= 0;
-
-              return (
-                <li key={segment.id} className="rounded-lg border border-slate-200 bg-surface p-4">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-xs text-slate-500">
-                          {segment.airline ?? "Airline not specified"}
-                          {segment.flightNumber ? ` · ${segment.flightNumber}` : ""}
-                        </p>
-                        <p className="text-sm font-semibold text-surface-strong">
-                          {segment.departureAirportCode} → {segment.arrivalAirportCode}
-                        </p>
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div>
-                          <p className="text-xs font-medium text-slate-500">Departure</p>
-                          <p className="text-sm text-surface-strong">
-                            {formatLocalTime(
-                              segment.scheduledDepartureAt,
-                              segment.departureTimeZone,
-                            )}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {segment.departureAirportName}
-                            {segment.departureAirportCity
-                              ? `, ${segment.departureAirportCity}`
-                              : ""}
-                          </p>
-                          <p className="text-xs text-slate-500">{segment.departureTimeZone}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-slate-500">Arrival</p>
-                          <p className="text-sm text-surface-strong">
-                            {formatLocalTime(segment.scheduledArrivalAt, segment.arrivalTimeZone)}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {segment.arrivalAirportName}
-                            {segment.arrivalAirportCity ? `, ${segment.arrivalAirportCity}` : ""}
-                          </p>
-                          <p className="text-xs text-slate-500">{segment.arrivalTimeZone}</p>
-                        </div>
-                      </div>
-                      <p className="text-xs text-slate-600">
-                        Flight time:{" "}
-                        {formatDuration(
-                          Math.round(
-                            (new Date(segment.scheduledArrivalAt).getTime() -
-                              new Date(segment.scheduledDepartureAt).getTime()) /
-                              60000,
-                          ),
-                        )}{" "}
-                        · Time-zone change: {formatTimeZoneChange(timezoneChange)}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => startEditing(segment)}
-                        className="rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-surface-muted"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleDelete(segment.id)}
-                        disabled={deletingId === segment.id}
-                        className="rounded-md border border-danger-dark px-3 py-2 text-sm font-medium text-danger-dark hover:bg-danger-soft disabled:opacity-60"
-                      >
-                        {deletingId === segment.id ? "Deleting…" : "Delete"}
-                      </button>
-                    </div>
-                  </div>
-                  {validConnection && (
-                    <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-600">
-                      Layover at {segment.arrivalAirportCode}:{" "}
-                      {formatDuration(Math.round(layoverMinutes))}
-                    </p>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        </>
+        JOURNEY_LEGS.map((leg) => {
+          const legSegments = segments.filter((segment) => segment.leg === leg);
+          if (legSegments.length === 0) return null;
+          return (
+            <LegItinerary
+              key={leg}
+              leg={leg}
+              route={legRoutes[leg]}
+              segments={legSegments}
+              deletingId={deletingId}
+              onEdit={startEditing}
+              onDelete={(segmentId) => void handleDelete(segmentId)}
+            />
+          );
+        })
       )}
 
       {error && (
@@ -402,9 +296,26 @@ export function FlightPlanner({
           {editingId ? "Edit flight segment" : "Add a flight segment"}
         </h3>
         <p className="text-xs text-slate-600">
-          Trip route: {origin} → {destination}. Flight times are saved as scheduled times; live
-          status is not available.
+          Flight times are saved as scheduled times. Check live status on the Flight Status page.
         </p>
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium text-surface-strong">Journey</legend>
+          <div className="flex flex-wrap gap-4">
+            {JOURNEY_LEGS.map((leg) => (
+              <label key={leg} className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="radio"
+                  name="flight-leg"
+                  value={leg}
+                  checked={form.leg === leg}
+                  onChange={() => setForm((current) => ({ ...current, leg }))}
+                  className="h-4 w-4 border-slate-300 text-brand focus-visible:ring-brand"
+                />
+                {JOURNEY_LEG_LABELS[leg]} ({legRoutes[leg]})
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1">
             <label htmlFor="flight-airline" className="text-sm font-medium text-surface-strong">
@@ -516,6 +427,160 @@ export function FlightPlanner({
           )}
         </div>
       </form>
+    </section>
+  );
+}
+
+/** One leg's flights, with totals, layovers, and warnings calculated within that leg only. */
+function LegItinerary({
+  leg,
+  route,
+  segments,
+  deletingId,
+  onEdit,
+  onDelete,
+}: {
+  leg: JourneyLeg;
+  route: string;
+  segments: FlightSegment[];
+  deletingId: number | null;
+  onEdit: (segment: FlightSegment) => void;
+  onDelete: (segmentId: number) => void;
+}) {
+  const itinerary = calculateItinerary(segments);
+  const headingId = `flight-itinerary-${leg}-heading`;
+
+  return (
+    <section aria-labelledby={headingId} className="space-y-3">
+      <h3 id={headingId} className="text-base font-semibold text-surface-strong">
+        {JOURNEY_LEG_LABELS[leg]}
+        <span className="ml-2 text-sm font-normal text-slate-500">{route}</span>
+      </h3>
+      <dl className="grid gap-3 rounded-lg border border-slate-200 bg-surface p-4 sm:grid-cols-3">
+        <div>
+          <dt className="text-xs font-medium text-slate-500">Total flight time</dt>
+          <dd className="text-sm font-semibold text-surface-strong">
+            {formatDuration(Math.round(itinerary.flightMinutes))}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs font-medium text-slate-500">Elapsed journey</dt>
+          <dd className="text-sm font-semibold text-surface-strong">
+            {formatDuration(Math.round(itinerary.elapsedMinutes))}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs font-medium text-slate-500">Connecting layovers</dt>
+          <dd className="text-sm font-semibold text-surface-strong">
+            {formatDuration(Math.round(itinerary.layoverMinutes))}
+          </dd>
+        </div>
+      </dl>
+      {itinerary.warnings.length > 0 && (
+        <div
+          className="rounded-md border border-warning-dark bg-warning-soft px-4 py-3 text-sm text-warning-dark"
+          role="status"
+        >
+          <p className="font-medium">Review this itinerary</p>
+          <ul className="mt-1 list-inside list-disc">
+            {itinerary.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <ol className="space-y-3">
+        {itinerary.segments.map((segment, index) => {
+          const timezoneChange = getTimeZoneChangeMinutes(segment);
+          const nextSegment = itinerary.segments[index + 1];
+          const layoverMinutes = nextSegment
+            ? (new Date(nextSegment.scheduledDepartureAt).getTime() -
+                new Date(segment.scheduledArrivalAt).getTime()) /
+              60000
+            : null;
+          const validConnection =
+            nextSegment &&
+            segment.arrivalAirportCode === nextSegment.departureAirportCode &&
+            layoverMinutes !== null &&
+            layoverMinutes >= 0;
+
+          return (
+            <li key={segment.id} className="rounded-lg border border-slate-200 bg-surface p-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs text-slate-500">
+                      {segment.airline ?? "Airline not specified"}
+                      {segment.flightNumber ? ` · ${segment.flightNumber}` : ""}
+                    </p>
+                    <p className="text-sm font-semibold text-surface-strong">
+                      {segment.departureAirportCode} → {segment.arrivalAirportCode}
+                    </p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-medium text-slate-500">Departure</p>
+                      <p className="text-sm text-surface-strong">
+                        {formatLocalTime(segment.scheduledDepartureAt, segment.departureTimeZone)}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {segment.departureAirportName}
+                        {segment.departureAirportCity ? `, ${segment.departureAirportCity}` : ""}
+                      </p>
+                      <p className="text-xs text-slate-500">{segment.departureTimeZone}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-slate-500">Arrival</p>
+                      <p className="text-sm text-surface-strong">
+                        {formatLocalTime(segment.scheduledArrivalAt, segment.arrivalTimeZone)}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {segment.arrivalAirportName}
+                        {segment.arrivalAirportCity ? `, ${segment.arrivalAirportCity}` : ""}
+                      </p>
+                      <p className="text-xs text-slate-500">{segment.arrivalTimeZone}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-600">
+                    Flight time:{" "}
+                    {formatDuration(
+                      Math.round(
+                        (new Date(segment.scheduledArrivalAt).getTime() -
+                          new Date(segment.scheduledDepartureAt).getTime()) /
+                          60000,
+                      ),
+                    )}{" "}
+                    · Time-zone change: {formatTimeZoneChange(timezoneChange)}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onEdit(segment)}
+                    className="rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-surface-muted"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(segment.id)}
+                    disabled={deletingId === segment.id}
+                    className="rounded-md border border-danger-dark px-3 py-2 text-sm font-medium text-danger-dark hover:bg-danger-soft disabled:opacity-60"
+                  >
+                    {deletingId === segment.id ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
+              </div>
+              {validConnection && (
+                <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-600">
+                  Layover at {segment.arrivalAirportCode}:{" "}
+                  {formatDuration(Math.round(layoverMinutes))}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ol>
     </section>
   );
 }

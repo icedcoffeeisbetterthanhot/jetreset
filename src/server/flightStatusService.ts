@@ -12,6 +12,7 @@ import {
   type FlightStatusSnapshotInput,
 } from "@lib/flightStatus";
 import { getLocalDate } from "@lib/recoveryDashboard";
+import { JOURNEY_LEGS, segmentsForLeg, type JourneyLeg } from "@lib/journeyLeg";
 import { prisma } from "@server/db";
 import { createAviationstackProvider } from "@server/flightStatus/aviationstack";
 import {
@@ -55,6 +56,7 @@ function isProviderConfigured(): boolean {
 }
 
 export type SegmentWithSnapshot = FlightStatusSegmentInput & {
+  leg: JourneyLeg;
   statusSnapshot:
     | (FlightStatusSnapshotInput & {
         provider: string;
@@ -123,6 +125,7 @@ export function summarizeFlightStatus(segments: SegmentWithSnapshot[]): FlightSt
 
 const segmentSelect = {
   id: true,
+  leg: true,
   flightNumber: true,
   departureAirportCode: true,
   arrivalAirportCode: true,
@@ -142,20 +145,30 @@ function toIso(date: Date | null): string | null {
 
 function buildView(
   segments: SegmentWithSnapshot[],
-  planSignature: string | null | undefined,
+  plans: Array<{ leg: JourneyLeg; flightStatusSignature: string | null }>,
   now: Date,
   errors: Map<number, string>,
 ) {
-  const summary = summarizeFlightStatus(segments);
   return {
     configured: isProviderConfigured(),
-    recoveryPlanUpdatePending: planSignature !== undefined && summary.signature !== planSignature,
-    blockingAlerts: summary.blockingAlerts,
+    // Each leg has its own recovery plan, so pending changes and alerts are per leg.
+    legs: JOURNEY_LEGS.filter((leg) => segmentsForLeg(segments, leg).length > 0).map((leg) => {
+      const summary = summarizeFlightStatus(segmentsForLeg(segments, leg));
+      const plan = plans.find((candidate) => candidate.leg === leg);
+      return {
+        leg,
+        hasPlan: plan !== undefined,
+        recoveryPlanUpdatePending:
+          plan !== undefined && summary.signature !== (plan.flightStatusSignature ?? null),
+        blockingAlerts: summary.blockingAlerts,
+      };
+    }),
     segments: segments.map((segment) => {
       const snapshot = segment.statusSnapshot;
       const eligibility = getStatusCheckEligibility(segment, now);
       return {
         segmentId: segment.id,
+        leg: segment.leg,
         flightNumber: segment.flightNumber,
         departureAirportCode: segment.departureAirportCode,
         arrivalAirportCode: segment.arrivalAirportCode,
@@ -208,7 +221,7 @@ async function loadTrip(tripId: number) {
         orderBy: [{ scheduledDepartureAt: "asc" }, { id: "asc" }],
         select: segmentSelect,
       },
-      recoveryPlan: { select: { flightStatusSignature: true } },
+      recoveryPlans: { select: { leg: true, flightStatusSignature: true } },
     },
   });
   if (!trip) throw new TripNotFoundError();
@@ -219,12 +232,7 @@ async function loadTrip(tripId: number) {
 export async function getTripFlightStatuses(tripId: number, now = new Date()) {
   validateTripId(tripId);
   const trip = await loadTrip(tripId);
-  return buildView(
-    trip.flightSegments,
-    trip.recoveryPlan ? trip.recoveryPlan.flightStatusSignature : undefined,
-    now,
-    new Map(),
-  );
+  return buildView(trip.flightSegments, trip.recoveryPlans, now, new Map());
 }
 
 /**
@@ -318,10 +326,5 @@ export async function refreshTripFlightStatuses(
     }
   }
 
-  return buildView(
-    trip.flightSegments,
-    trip.recoveryPlan ? trip.recoveryPlan.flightStatusSignature : undefined,
-    now,
-    errors,
-  );
+  return buildView(trip.flightSegments, trip.recoveryPlans, now, errors);
 }
