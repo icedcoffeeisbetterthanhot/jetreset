@@ -31,7 +31,7 @@ src/
             activities/[activityId]/ # Persist activity completion
             flight-status/ # POST apply verified status changes to the plan
     dashboard/  # Daily recovery dashboard for one selected trip
-    flight-status/ # Flight status for one selected trip
+    flight-status/ # Flight Status page for one selected trip
     trips/      # Trip list, details, create, and edit pages
     layout.tsx
     page.tsx
@@ -39,7 +39,7 @@ src/
   components/   # Shared UI components and feature components
     ui/
     layout/
-    dashboard/  # Daily dashboard client component
+    dashboard/  # Daily Dashboard client component
     trips/      # Trip, flight, and recovery-plan components; recoveryApi.ts client helpers
   lib/          # Shared utilities, env validation, non-secret configuration
     env.ts
@@ -145,7 +145,7 @@ overlapping flights and mismatched transfer airports.
   snapshot records the segment's `updatedAt`; editing the segment makes the
   snapshot non-current, so it is ignored until checked again.
 - **Page**: `/flight-status` shows one trip at a time (`?trip=<id>`, or the
-  same automatic choice as the daily dashboard) using `FlightStatusPanel`. The
+  same automatic choice as the Daily Dashboard) using `FlightStatusPanel`. The
   trip page links to it and shows a notice when changes are pending or a flight
   is cancelled or diverted. The trip picker, empty state, and `?trip=`
   resolution are shared with `/dashboard` via `components/trips/TripSelection.tsx`.
@@ -200,7 +200,7 @@ day, and calculates progress only from persisted activity completion.
 
 ### Daily Dashboard Page (`/dashboard`)
 
-The standalone daily dashboard presents one trip's plan as a calendar: summary
+The standalone Daily Dashboard presents one trip's plan as a calendar: summary
 tiles (next sleep/wake targets, next activity, today's progress), a strip of
 plan days (preparation day and recovery days, defaulting to the current one),
 and an hourly schedule for the selected day. Each activity shows its exact

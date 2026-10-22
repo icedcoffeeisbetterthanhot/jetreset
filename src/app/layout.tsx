@@ -41,7 +41,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                     href="/dashboard"
                     className="text-slate-600 underline-offset-4 hover:text-surface-strong hover:underline"
                   >
-                    Daily dashboard
+                    Daily Dashboard
                   </Link>
                 </li>
                 <li>
@@ -49,7 +49,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                     href="/flight-status"
                     className="text-slate-600 underline-offset-4 hover:text-surface-strong hover:underline"
                   >
-                    Flight status
+                    Flight Status
                   </Link>
                 </li>
               </ul>

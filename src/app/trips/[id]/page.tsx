@@ -53,13 +53,13 @@ export default async function TripDetailsPage({ params }: TripDetailsPageProps) 
           href={`/dashboard?trip=${trip.id}`}
           className="text-sm font-medium text-brand-dark underline-offset-4 hover:underline"
         >
-          Open daily dashboard
+          Open Daily Dashboard
         </Link>
         <Link
           href={`/flight-status?trip=${trip.id}`}
           className="text-sm font-medium text-brand-dark underline-offset-4 hover:underline"
         >
-          Flight status
+          Flight Status
         </Link>
       </nav>
 
