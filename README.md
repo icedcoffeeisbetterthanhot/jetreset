@@ -574,8 +574,13 @@ The current milestone 12 delivery is a standalone, browser-only game page at `/g
 It is intentionally not linked from the application and is reached by entering its URL directly.
 The current-flight score and game state remain in memory and are discarded when the page is left;
 there is no high-score tracking, database model, API, or account association in this scope.
-The game includes white clouds, birds, and balloons as obstacles; obstacle movement accelerates
-during a flight, and a game-over overlay marks the board after a collision.
+The game includes four browser-only levels. Level 1 starts at 10 obstacles, and each successive
+level adds 50 to the target: 60 in space, 110 underwater, and 160 in the arctic. The space level
+has a spaceship and stars, planets, and meteors; the underwater level has a submarine, seaweed,
+fish, and mines; and the arctic level has a snowmobile, snowballs, penguins, and icebergs.
+Completing a level triggers a confetti celebration. Obstacle movement accelerates during a flight,
+and a game-over overlay marks the board after a collision. Restarting after a collision starts a
+new run at level 1.
 Persistent high scores and server-side score validation remain future work requiring explicit
 approval.
 

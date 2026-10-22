@@ -26,3 +26,26 @@ body {
 .app-main {
   @apply flex-1;
 }
+
+.game-confetti-piece {
+  animation: game-confetti-fall 2.8s ease-out both;
+}
+
+@keyframes game-confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translateY(-5vh) rotate(0deg);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(110vh) rotate(720deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-confetti-piece {
+    animation: none;
+    opacity: 0;
+  }
+}

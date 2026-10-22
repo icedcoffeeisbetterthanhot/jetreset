@@ -14,7 +14,7 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Daily dashboard – JetReset",
+  title: "Daily Dashboard – JetReset",
 };
 
 type DashboardPageProps = {
@@ -33,7 +33,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight text-surface-strong">
-            Daily dashboard
+            Daily Dashboard
           </h1>
           <p className="max-w-xl text-sm text-slate-600">
             Today&apos;s sleep targets, light exposure, meals, hydration, movement, and caffeine

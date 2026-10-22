@@ -1,6 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -41,7 +41,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                     href="/dashboard"
                     className="text-slate-600 underline-offset-4 hover:text-surface-strong hover:underline"
                   >
-                    Daily dashboard
+                    Daily Dashboard
                   </Link>
                 </li>
                 <li>
@@ -49,7 +49,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                     href="/flight-status"
                     className="text-slate-600 underline-offset-4 hover:text-surface-strong hover:underline"
                   >
-                    Flight status
+                    Flight Status
                   </Link>
                 </li>
               </ul>
@@ -62,7 +62,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <footer className="border-t border-slate-200 bg-surface-soft">
           <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-4 text-sm text-slate-500 md:flex-row md:items-center md:justify-between md:px-6">
             <p>&copy; {new Date().getFullYear()} JetReset. All rights reserved.</p>
-            <p>Time-aware trip planning and general recovery guidance. No live flight tracking.</p>
+            <p>Time-aware trip planning and general recovery guidance.</p>
           </div>
         </footer>
       </body>
