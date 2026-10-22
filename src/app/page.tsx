@@ -40,7 +40,7 @@ export default function HomePage() {
             href="/trips/new"
             className="inline-flex min-h-14 items-center justify-center rounded-md bg-brand px-8 py-4 text-base font-semibold text-white shadow-soft transition-colors hover:bg-brand-dark focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-surface-muted"
           >
-            Plan your first trip
+            Plan your next trip
           </Link>
           <Link
             href="/trips"
