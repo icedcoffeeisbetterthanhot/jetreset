@@ -231,7 +231,8 @@ export function TripForm({ tripId, initialValues }: TripFormProps) {
               aria-describedby={errors.arrivalLocal ? "arrival-local-error" : undefined}
             />
             <p className="text-xs text-slate-500">
-              This time is interpreted in the destination time zone you selected.
+              This time is interpreted in the destination time zone you selected. Arrival may be on
+              the same date as departure if its converted time is later.
             </p>
             {errors.arrivalLocal && (
               <p id="arrival-local-error" className="text-xs text-danger-dark">

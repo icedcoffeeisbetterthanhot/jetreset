@@ -71,7 +71,9 @@ function getTripData(input: unknown) {
   }
 
   if (arrivalAt.getTime() <= departureAt.getTime()) {
-    throw new TripInputError("Arrival must be after departure.");
+    throw new TripInputError(
+      "Arrival date and time must be after departure when interpreted in the selected time zones.",
+    );
   }
 
   return {

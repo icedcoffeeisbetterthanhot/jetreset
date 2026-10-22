@@ -61,7 +61,42 @@ describe("trip service", () => {
       TripInputError,
     );
     await expect(createTrip({ ...validTrip, arrivalLocal: "2026-05-01T09:00" })).rejects.toThrow(
-      "Arrival must be after departure.",
+      "Arrival date and time must be after departure when interpreted in the selected time zones.",
+    );
+
+    expect(tripMocks.create).not.toHaveBeenCalled();
+  });
+
+  it("accepts a later arrival on the same calendar day in the same time zone", async () => {
+    tripMocks.create.mockResolvedValue({ id: 1 });
+
+    await createTrip({
+      ...validTrip,
+      originTimeZone: "Europe/London",
+      destinationTimeZone: "Europe/London",
+      departureLocal: "2026-05-01T10:00",
+      arrivalLocal: "2026-05-01T10:01",
+    });
+
+    expect(tripMocks.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        departureAt: new Date("2026-05-01T09:00:00.000Z"),
+        arrivalAt: new Date("2026-05-01T09:01:00.000Z"),
+      }),
+    });
+  });
+
+  it("rejects an earlier arrival time on the same calendar day", async () => {
+    await expect(
+      createTrip({
+        ...validTrip,
+        originTimeZone: "Europe/London",
+        destinationTimeZone: "Europe/London",
+        departureLocal: "2026-05-01T10:00",
+        arrivalLocal: "2026-05-01T09:59",
+      }),
+    ).rejects.toThrow(
+      "Arrival date and time must be after departure when interpreted in the selected time zones.",
     );
 
     expect(tripMocks.create).not.toHaveBeenCalled();
