@@ -6,7 +6,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "JetReset – Plan your trip and find your rhythm",
   description:
-    "Organize your trip across time zones, map your flights, and follow practical destination-time recovery guidance with JetReset.",
+    "Organise your trip across time zones, map your flights, and follow practical destination-time recovery guidance with JetReset.",
   icons: {
     icon: "/favicon.ico",
   },
