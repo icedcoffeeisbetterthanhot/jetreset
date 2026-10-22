@@ -31,6 +31,14 @@ describe("AccountNavigation", () => {
     const menu = accountButton.closest("details");
     expect(menu).not.toHaveAttribute("open");
     expect(document.querySelector('a[href="/game"]')).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Daily Dashboard" })).toHaveAttribute(
+      "href",
+      "/dashboard",
+    );
+    expect(screen.getByRole("link", { name: "Flight Status" })).toHaveAttribute(
+      "href",
+      "/flight-status",
+    );
 
     fireEvent.click(accountButton);
 

@@ -43,6 +43,7 @@ describe("flight service", () => {
 
     expect(mocks.flightCreate).toHaveBeenCalledWith({
       data: {
+        leg: "outbound",
         airline: "Example Air",
         flightNumber: "EX123",
         departureAirportCode: "LHR",

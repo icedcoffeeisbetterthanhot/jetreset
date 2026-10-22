@@ -1,38 +1,20 @@
 "use client";
 
 import React, { FormEvent, useState } from "react";
-import type { RecoveryActivityType } from "@lib/recoveryPlan";
-
-interface RecoveryActivityView {
-  id: number;
-  activityKey: string;
-  dayNumber: number;
-  type: RecoveryActivityType;
-  title: string;
-  guidance: string;
-  scheduledAt: string;
-  timeZone: string;
-  completedAt: string | null;
-}
-
-interface RecoveryPlanView {
-  sourceTripUpdatedAt: string;
-  destinationTimeZone: string;
-  journeyDurationMinutes: number;
-  direction: "east" | "west" | "none";
-  timeZoneChangeMinutes: number;
-  estimatedTimeZonesCrossed: number;
-  recoveryDays: number;
-  targetBedtime: string;
-  targetWakeTime: string;
-  avoidCaffeine: boolean;
-  preparationDaysAvailable: number;
-  assumptions: string[];
-  activities: RecoveryActivityView[];
-}
+import {
+  ACTIVITY_LABELS,
+  getDailyRecoveryState,
+  offsetDescription,
+  type RecoveryActivityView,
+  type RecoveryPlanView,
+} from "@lib/recoveryDashboard";
+import { readResponseError, updateActivityCompletion } from "@components/trips/recoveryApi";
+import { RECOVERY_PLAN_LABELS, type JourneyLeg } from "@lib/journeyLeg";
 
 interface RecoveryDashboardProps {
   tripId: number;
+  /** Outbound plans adjust to the destination; return plans adjust back to home time. */
+  leg?: JourneyLeg;
   departureAt: string;
   arrivalAt: string;
   destinationTimeZone: string;
@@ -40,52 +22,12 @@ interface RecoveryDashboardProps {
   initialPlanIsOutOfDate: boolean;
 }
 
-const ACTIVITY_LABELS: Record<RecoveryActivityType, string> = {
-  sleep: "Sleep",
-  light: "Light",
-  meal: "Meal",
-  hydration: "Hydration",
-  exercise: "Movement",
-  caffeine: "Caffeine",
-};
-
 function formatTime(date: Date, timeZone: string): string {
   return new Intl.DateTimeFormat("en-GB", {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone,
   }).format(date);
-}
-
-function getLocalDate(date: Date, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    calendar: "gregory",
-    numberingSystem: "latn",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
-}
-
-function calendarDaysBetween(start: string, end: string): number {
-  const [startYear, startMonth, startDay] = start.split("-").map(Number);
-  const [endYear, endMonth, endDay] = end.split("-").map(Number);
-  const startDate = Date.UTC(startYear, startMonth - 1, startDay);
-  const endDate = Date.UTC(endYear, endMonth - 1, endDay);
-  return Math.round((endDate - startDate) / 86_400_000);
-}
-
-function offsetDescription(minutes: number): string {
-  if (minutes === 0) return "No time-zone offset change";
-  const hours = Math.floor(Math.abs(minutes) / 60);
-  const remainingMinutes = Math.abs(minutes) % 60;
-  const duration = `${hours ? `${hours}h` : ""}${hours && remainingMinutes ? " " : ""}${
-    remainingMinutes ? `${remainingMinutes}m` : ""
-  }`;
-  return `${duration} ${minutes > 0 ? "ahead" : "behind"}`;
 }
 
 function isRecoveryPlan(value: unknown): value is RecoveryPlanView {
@@ -99,22 +41,9 @@ function isRecoveryPlan(value: unknown): value is RecoveryPlanView {
   );
 }
 
-function apiError(value: unknown, fallback: string): string {
-  if (typeof value !== "object" || value === null) return fallback;
-  const error = (value as Record<string, unknown>).error;
-  return typeof error === "string" ? error : fallback;
-}
-
-async function readResponseError(response: Response, fallback: string): Promise<string> {
-  try {
-    return apiError(await response.json(), fallback);
-  } catch {
-    return fallback;
-  }
-}
-
 export function RecoveryDashboard({
   tripId,
+  leg = "outbound",
   departureAt,
   arrivalAt,
   destinationTimeZone,
@@ -131,49 +60,23 @@ export function RecoveryDashboard({
   const [error, setError] = useState<string | null>(null);
 
   const now = new Date();
-  const departure = new Date(departureAt);
-  const arrival = new Date(arrivalAt);
-  const today = getLocalDate(now, destinationTimeZone);
-  const destinationArrivalDate = getLocalDate(arrival, destinationTimeZone);
-  const isBeforeDeparture = now.getTime() < departure.getTime();
-  const isInTransit = now.getTime() >= departure.getTime() && now.getTime() < arrival.getTime();
-  const rawRecoveryDay = calendarDaysBetween(destinationArrivalDate, today) + 1;
-  const recoveryDay = plan
-    ? Math.max(1, Math.min(plan.recoveryDays, rawRecoveryDay))
-    : Math.max(1, rawRecoveryDay);
-  const stage = isBeforeDeparture
-    ? "Before departure"
-    : isInTransit
-      ? "In transit"
-      : rawRecoveryDay > (plan?.recoveryDays ?? 0)
-        ? "Plan period complete"
-        : `Recovery day ${recoveryDay} of ${plan?.recoveryDays ?? "—"}`;
-  const dailyActivities = plan
-    ? plan.activities.filter((activity) => {
-        if (isInTransit) return false;
-        if (isBeforeDeparture) {
-          return (
-            activity.dayNumber === 0 &&
-            getLocalDate(new Date(activity.scheduledAt), activity.timeZone) ===
-              getLocalDate(now, activity.timeZone)
-          );
-        }
-        return (
-          activity.dayNumber === recoveryDay &&
-          getLocalDate(new Date(activity.scheduledAt), activity.timeZone) === today
-        );
-      })
-    : [];
-  const completedCount = dailyActivities.filter((activity) => activity.completedAt !== null).length;
-  const nextBedtime = plan?.activities.find(
-    (activity) =>
-      activity.title === "Target bedtime" &&
-      activity.completedAt === null &&
-      new Date(activity.scheduledAt).getTime() >= now.getTime(),
-  );
-  const progress = dailyActivities.length
-    ? Math.round((completedCount / dailyActivities.length) * 100)
-    : 0;
+  const {
+    stage: currentStage,
+    stageLabel: stage,
+    rawRecoveryDay,
+    dailyActivities,
+    completedCount,
+    nextBedtime,
+    progress,
+  } = getDailyRecoveryState({
+    departureAt: new Date(departureAt),
+    arrivalAt: new Date(arrivalAt),
+    destinationTimeZone,
+    plan,
+    now,
+  });
+  const isBeforeDeparture = currentStage === "before-departure";
+  const isInTransit = currentStage === "in-transit";
 
   async function handleGenerate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -183,7 +86,7 @@ export function RecoveryDashboard({
       const response = await fetch(`/api/trips/${tripId}/recovery`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetBedtime, targetWakeTime, avoidCaffeine }),
+        body: JSON.stringify({ leg, targetBedtime, targetWakeTime, avoidCaffeine }),
       });
       if (!response.ok) {
         throw new Error(await readResponseError(response, "Unable to generate a recovery plan."));
@@ -216,23 +119,11 @@ export function RecoveryDashboard({
     setError(null);
     setUpdatingActivityId(activity.id);
     try {
-      const response = await fetch(`/api/trips/${tripId}/recovery/activities/${activity.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completed: activity.completedAt === null }),
-      });
-      if (!response.ok) {
-        throw new Error(await readResponseError(response, "Unable to update activity progress."));
-      }
-      const updated = await response.json();
-      if (
-        typeof updated !== "object" ||
-        updated === null ||
-        typeof updated.id !== "number" ||
-        !(updated.completedAt === null || typeof updated.completedAt === "string")
-      ) {
-        throw new Error("The server returned invalid activity progress.");
-      }
+      const updated = await updateActivityCompletion(
+        tripId,
+        activity.id,
+        activity.completedAt === null,
+      );
       setPlan((current) =>
         current
           ? {
@@ -255,12 +146,18 @@ export function RecoveryDashboard({
   }
 
   return (
-    <section aria-labelledby="recovery-dashboard-heading" className="mt-10 space-y-5">
+    <section aria-labelledby={`recovery-dashboard-${leg}-heading`} className="mt-10 space-y-5">
       <header className="space-y-1">
-        <h2 id="recovery-dashboard-heading" className="text-xl font-semibold text-surface-strong">
-          Recovery plan
+        <h2
+          id={`recovery-dashboard-${leg}-heading`}
+          className="text-xl font-semibold text-surface-strong"
+        >
+          {RECOVERY_PLAN_LABELS[leg]}
         </h2>
         <p className="text-sm text-slate-600">
+          {leg === "return"
+            ? "Guidance for settling back into home time after your return flights. "
+            : ""}
           General, flexible travel-routine guidance based on this trip. It is not medical advice or
           a clinical circadian model.
         </p>
@@ -270,8 +167,9 @@ export function RecoveryDashboard({
         {!plan ? (
           <div className="space-y-4">
             <p className="text-sm text-slate-600">
-              Generate a destination-local schedule for sleep, meals, daylight, hydration, gentle
-              movement, and optional caffeine guidance.
+              {leg === "return"
+                ? "Generate a home-time schedule for after your return flights, with sleep, meals, daylight, hydration, gentle movement, and optional caffeine guidance."
+                : "Generate a destination-local schedule for sleep, meals, daylight, hydration, gentle movement, and optional caffeine guidance."}
             </p>
             <PreferencesForm
               targetBedtime={targetBedtime}
@@ -282,7 +180,14 @@ export function RecoveryDashboard({
               onWakeTimeChange={setTargetWakeTime}
               onAvoidCaffeineChange={setAvoidCaffeine}
               onSubmit={handleGenerate}
-              submitLabel={saving ? "Generating…" : "Generate recovery plan"}
+              idPrefix={`recovery-${leg}`}
+              submitLabel={
+                saving
+                  ? "Generating…"
+                  : leg === "return"
+                    ? "Generate back-home plan"
+                    : "Generate recovery plan"
+              }
             />
           </div>
         ) : (
@@ -295,6 +200,11 @@ export function RecoveryDashboard({
                 This plan was based on earlier trip details. Regenerate it to use the current
                 itinerary. Completed activities will be preserved where their schedule still
                 matches.
+              </p>
+            )}
+            {plan.adjustmentNote && (
+              <p className="rounded-md border border-brand/30 bg-brand-soft px-4 py-3 text-sm text-brand-dark">
+                {plan.adjustmentNote}
               </p>
             )}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -458,6 +368,7 @@ export function RecoveryDashboard({
                   onWakeTimeChange={setTargetWakeTime}
                   onAvoidCaffeineChange={setAvoidCaffeine}
                   onSubmit={handleGenerate}
+                  idPrefix={`recovery-${leg}`}
                   submitLabel={saving ? "Regenerating…" : "Regenerate plan"}
                 />
               </div>
@@ -487,6 +398,7 @@ function PreferencesForm({
   onAvoidCaffeineChange,
   onSubmit,
   submitLabel,
+  idPrefix,
 }: {
   targetBedtime: string;
   targetWakeTime: string;
@@ -497,16 +409,20 @@ function PreferencesForm({
   onAvoidCaffeineChange: (value: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   submitLabel: string;
+  idPrefix: string;
 }) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1">
-          <label htmlFor="recovery-wake-time" className="text-sm font-medium text-surface-strong">
+          <label
+            htmlFor={`${idPrefix}-wake-time`}
+            className="text-sm font-medium text-surface-strong"
+          >
             Preferred wake-time target (05:00–11:59)
           </label>
           <input
-            id="recovery-wake-time"
+            id={`${idPrefix}-wake-time`}
             type="time"
             min="05:00"
             max="11:59"
@@ -517,11 +433,14 @@ function PreferencesForm({
           />
         </div>
         <div className="space-y-1">
-          <label htmlFor="recovery-bedtime" className="text-sm font-medium text-surface-strong">
+          <label
+            htmlFor={`${idPrefix}-bedtime`}
+            className="text-sm font-medium text-surface-strong"
+          >
             Preferred bedtime target (18:00–23:59)
           </label>
           <input
-            id="recovery-bedtime"
+            id={`${idPrefix}-bedtime`}
             type="time"
             min="18:00"
             max="23:59"

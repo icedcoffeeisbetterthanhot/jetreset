@@ -53,6 +53,9 @@ export interface RecoveryPlanDraft {
   targetWakeTime: string;
   avoidCaffeine: boolean;
   preparationDaysAvailable: number;
+  /** First departure and final arrival used for the plan (flight segments when present). */
+  routeDepartureAt: Date;
+  routeArrivalAt: Date;
   assumptions: string[];
   activities: RecoveryActivityDraft[];
 }
@@ -319,12 +322,14 @@ export function generateRecoveryPlan(input: RecoveryPlanInput): RecoveryPlanDraf
     targetWakeTime,
     avoidCaffeine,
     preparationDaysAvailable,
+    routeDepartureAt,
+    routeArrivalAt,
     assumptions: [
       "This is general educational planning, not medical advice or a clinical circadian model.",
       "The approximate time-zone change is based on the time-zone offsets at the scheduled trip endpoints; daylight-saving rules can affect the result.",
       "The suggested times are flexible destination-local anchors, not guaranteed sleep, light, meal, or recovery outcomes.",
       "Flight segments, when present, define the first departure and final arrival used for the itinerary summary.",
-      "No personal health data, sleep measurement, sunlight forecast, or verified flight-status data is used.",
+      "No personal health data, sleep measurement, or sunlight forecast is used. Flight times reflect the saved schedule unless verified flight-status changes have been applied.",
     ],
     activities: scheduledActivities,
   };

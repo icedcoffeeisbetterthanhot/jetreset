@@ -1,12 +1,14 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { TripDateTimeSchema, toZonedInstant } from "@lib/timezone";
+import { journeyLegSchema } from "@lib/journeyLeg";
 import { prisma } from "@server/db";
 import { findAirport } from "@server/airportService";
 import { getTripById, TripInputError, TripNotFoundError } from "@server/tripService";
 import { FlightSegmentNotFoundError } from "@server/flightErrors";
 
 const flightSegmentSchema = z.object({
+  leg: journeyLegSchema.default("outbound"),
   airline: z.string().trim().max(120).optional(),
   flightNumber: z.string().trim().max(32).optional(),
   departureAirportCode: z
@@ -62,6 +64,7 @@ function buildFlightSegmentData(input: unknown) {
   }
 
   return {
+    leg: parsed.data.leg,
     airline: parsed.data.airline || null,
     flightNumber: parsed.data.flightNumber || null,
     departureAirportCode: departureAirport.code,

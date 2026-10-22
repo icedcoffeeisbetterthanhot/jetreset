@@ -28,6 +28,13 @@ The current implementation includes:
 - Core variables:
   - `NODE_ENV` (`development`, `test`, `production`)
   - `DATABASE_URL` (PostgreSQL connection string)
+- Optional variables:
+  - `AVIATIONSTACK_API_KEY` (flight-status provider key, validated by
+    `getFlightStatusProviderConfig()`; read only by server modules and never
+    included in logs, error messages, or client bundles. Aviationstack requires
+    it as the `access_key` query parameter, so it is sent only over HTTPS to
+    `api.aviationstack.com`, request URLs are never logged, and fetch errors
+    (which may contain the URL) are replaced with generic messages.)
 - `.env.example` provides safe placeholders only.
 - `.env` and local environment overrides are ignored by Git.
 - Real secrets must not be committed.
@@ -80,9 +87,31 @@ Relevant current risks:
 - **A08: Software and Data Integrity Failures**: Prisma migrations manage schema evolution; destructive reset is discouraged.
 - **A09: Security Logging and Monitoring Failures**: No centralized logging
   or intrusion detection is configured.
-- **A10: Server-Side Request Forgery (SSRF)**: No runtime external requests are
-  made. The airport refresh script downloads from a fixed OurAirports source URL
-  only when explicitly run by a developer.
+- **A10: Server-Side Request Forgery (SSRF)**: The only runtime external
+  request is the flight-status lookup to the fixed HTTPS endpoint
+  `https://api.aviationstack.com/v1/flights`. User input contributes only a
+  validated flight number and the saved airport codes, all as encoded query
+  parameters; redirects are refused and requests time out after 8 seconds. The airport refresh script
+  downloads from a fixed OurAirports source URL only when explicitly run by a
+  developer.
+
+### Flight-Status Integration
+
+- Status checks run only when a user presses "Check flight status"; page views
+  never call the provider. Results are cached per segment for 10 minutes and
+  provider calls are capped at 10 per hour per server process (in-memory; a
+  multi-instance deployment would need a shared limiter). The provider's own
+  monthly allowance is enforced by Aviationstack and reported to the user.
+- Provider responses are schema-validated with `zod`; unexpected shapes are
+  rejected rather than partially trusted. Provider times are used only when they can be read
+  consistently with the saved schedule (see ARCHITECTURE.md).
+- Failed lookups log only an event name, segment ID, and failure category —
+  never the key, flight number, or airports.
+- Recovery plans are never changed automatically. Applying status changes
+  requires an explicit user action, keeps all past and completed activities,
+  and refuses cancellations and diversions.
+- The status endpoints have the same missing ownership checks as other trip
+  routes and, like them, are for trusted local development only.
 
 ## Verification Performed
 
@@ -95,6 +124,18 @@ Relevant current risks:
   and airport search covered by unit tests.
 - Recovery planning, time-zone handling, preference validation, persistence,
   stale-plan detection, and dashboard progress covered by unit tests.
+- Flight-status provider mapping, HTTP error handling, key non-disclosure,
+  response validation, caching, call budget, change detection, and safe plan
+  adjustment covered by unit tests with a mocked provider. The Aviationstack
+  integration was verified against the live service on 2026-10-22 (free plan):
+  HTTPS requests with `flight_iata`, `dep_iata`, and `arr_iata` succeed, the
+  key is not echoed in responses, and a real active flight was matched and
+  mapped end to end. Cancellation, diversion, and limit-exceeded responses
+  have only been tested with mocked responses.
+- The `/dashboard` page validates the `trip` query parameter as a positive
+  integer (404 otherwise), reads only through server services, and adds no new
+  API routes. Like the rest of the app, it has no ownership checks yet and
+  lists every trip in the database: trusted local development only.
 - Browser smoke test verified with Playwright.
 - Production build (`npm run build`) validates configuration.
 - Prisma connectivity can be tested with `npm run db:check` when PostgreSQL is available.

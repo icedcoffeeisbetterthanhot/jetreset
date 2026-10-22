@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { TripInputError } from "@server/tripService";
 import { getRecoveryPlan, generateOrRefreshRecoveryPlan } from "@server/recoveryService";
 import { tripApiErrorResponse } from "@server/tripApiError";
+import { parseJourneyLeg } from "@lib/journeyLeg";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -16,9 +17,11 @@ async function getTripId(context: RouteContext): Promise<number> {
   return tripId;
 }
 
-export async function GET(_request: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    return NextResponse.json(await getRecoveryPlan(await getTripId(context)));
+    const leg = parseJourneyLeg(request.nextUrl.searchParams.get("leg"));
+    if (!leg) throw new TripInputError("Leg must be outbound or return.");
+    return NextResponse.json(await getRecoveryPlan(await getTripId(context), leg));
   } catch (error) {
     return tripApiErrorResponse(error, "Unable to load the recovery plan.");
   }

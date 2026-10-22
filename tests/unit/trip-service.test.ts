@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import {
   createTrip,
   deleteTrip,
+  listTripsWithFlights,
   TripInputError,
   TripNotFoundError,
   updateTrip,
@@ -106,6 +107,19 @@ describe("trip service", () => {
     );
 
     expect(tripMocks.create).not.toHaveBeenCalled();
+  });
+
+  it("lists only the current owner's trips with flights", async () => {
+    tripMocks.findMany.mockResolvedValue([]);
+
+    await listTripsWithFlights();
+
+    expect(tripMocks.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: null, guestId: "a".repeat(64) },
+        orderBy: { departureAt: "asc" },
+      }),
+    );
   });
 
   it("updates the existing trip rather than creating a duplicate", async () => {

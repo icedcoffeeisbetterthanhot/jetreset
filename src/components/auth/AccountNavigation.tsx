@@ -50,7 +50,19 @@ export function AccountNavigation() {
         href="/trips"
         className="text-sm font-medium text-slate-600 underline-offset-4 hover:text-brand-dark hover:underline"
       >
-        Your trips
+        Your Trips
+      </Link>
+      <Link
+        href="/dashboard"
+        className="text-sm font-medium text-slate-600 underline-offset-4 hover:text-surface-strong hover:underline"
+      >
+        Daily Dashboard
+      </Link>
+      <Link
+        href="/flight-status"
+        className="text-sm font-medium text-slate-600 underline-offset-4 hover:text-surface-strong hover:underline"
+      >
+        Flight Status
       </Link>
       <Link
         href="/community"

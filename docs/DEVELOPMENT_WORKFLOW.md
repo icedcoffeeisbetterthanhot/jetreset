@@ -24,6 +24,18 @@ This document describes how to set up the project, run checks, and collaborate v
    ```
 
    Edit `DATABASE_URL` in `.env` to match a local PostgreSQL database and user.
+
+   Optional: to enable live flight status, add an Aviationstack access key
+   (https://aviationstack.com/pricing; the free plan allows 100 requests per
+   month for non-commercial use and covers real-time flights only):
+
+   ```dotenv
+   AVIATIONSTACK_API_KEY=your-access-key
+   ```
+
+   Without it the app still works; the trip page states that live flight status
+   is not configured and no status is shown. Restart the dev server after
+   changing `.env`.
    The `.env` file contains local credentials and is ignored by Git. Never commit
    it or paste its contents into issue reports.
 
@@ -52,6 +64,10 @@ This document describes how to set up the project, run checks, and collaborate v
    npm run db:check
    ```
 
+   If the application reports an unknown Prisma field or model delegate, stop
+   the dev server, run `npm run db:generate`, and restart the server. On Windows,
+   the running server can lock the Prisma query engine and prevent regeneration.
+
    `migrate deploy` applies the migrations already in this repository and does
    not create a shadow database. To create a new migration during development,
    use `npm run db:migrate -- --name <migration_name>`; Prisma's development
@@ -60,6 +76,16 @@ This document describes how to set up the project, run checks, and collaborate v
    migrations.
    The account migration removes stored email addresses, email verification,
    and password-reset tokens. Back up the database before applying it.
+
+   Never pass the development `DATABASE_URL` as `--shadow-database-url` (for
+   example to `prisma migrate diff`): Prisma resets the shadow database, which
+   erases all data in it. To draft migration SQL without any database, diff two
+   schema files instead:
+
+   ```powershell
+   git show HEAD:prisma/schema.prisma > $env:TEMP\schema.head.prisma
+   npx prisma migrate diff --from-schema-datamodel $env:TEMP\schema.head.prisma --to-schema-datamodel prisma/schema.prisma --script
+   ```
 
    Refresh the bundled airport directory when needed with
    `npm run airports:update`. This downloads the scheduled-service airport

@@ -570,11 +570,19 @@ Treat high scores as game data, not as a security-sensitive ranking unless the p
 
 Do not prioritise the game above core travel and recovery functionality.
 
-The game is a standalone feature at `/game`, separate from trip and recovery workflows. Guest
-players can play without saving scores; signed-in users can submit scores to the public leaderboard.
-Runs are replayed by the server from deterministic obstacle seeds and steering inputs, and the
-server computes the stored score. This prevents arbitrary score submissions, but does not prevent
-automated play. The leaderboard shows usernames and best scores only.
+The current milestone 12 delivery is a standalone, browser-only game page at `/game`.
+It is intentionally not linked from the application and is reached by entering its URL directly.
+The current-flight score and game state remain in memory and are discarded when the page is left;
+there is no high-score tracking, database model, API, or account association in this scope.
+The game includes four browser-only levels. Level 1 starts at 10 obstacles, and each successive
+level adds 50 to the target: 60 in space, 110 underwater, and 160 in the arctic. The space level
+has a spaceship and stars, planets, and meteors; the underwater level has a submarine, seaweed,
+fish, and mines; and the arctic level has a snowmobile, snowballs, penguins, and icebergs.
+Completing a level triggers a confetti celebration. Obstacle movement accelerates during a flight,
+and a game-over overlay marks the board after a collision. Restarting after a collision starts a
+new run at level 1.
+Persistent high scores and server-side score validation remain future work requiring explicit
+approval.
 
 22. Database Design and Data Integrity
 
